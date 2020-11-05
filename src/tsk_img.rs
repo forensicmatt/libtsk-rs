@@ -3,7 +3,8 @@ use std::ffi::{CStr, CString};
 use crate::{
     errors::TskError,
     bindings as tsk,
-    tsk_fs::TskFs
+    tsk_fs::TskFs,
+    tsk_vs::TskVs
 };
 
 
@@ -44,6 +45,11 @@ impl TskImg {
         };
 
         Ok( Self { handle } )
+    }
+
+    /// Get a TskVs at a given offset
+    pub fn get_vs_from_offset(&self, offset: u64) -> Result<TskVs, TskError> {
+        TskVs::new(&self, offset)
     }
 
     /// Get a TskFs at a given offset

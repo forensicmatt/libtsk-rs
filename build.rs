@@ -6,6 +6,8 @@ use std::path::PathBuf;
 fn main() {
     println!(r"cargo:rerun-if-changed=wrapper.h");
     println!(r"cargo:rustc-link-lib=libtsk");
+
+    // TODO: Make more dynamic and cross platform (might need help here)
     // On Windows Ole32 is required
     println!(r"cargo:rustc-link-lib=Ole32");
     println!(r"cargo:rustc-link-search=D:\libraries\sleuthkit-4.10.0\win32\x64\Release_NoLibs");
@@ -21,6 +23,11 @@ fn main() {
         
         .whitelist_function("tsk_img_open_utf8_sing")
         .whitelist_function("tsk_img_close")
+
+        .whitelist_function("tsk_vs_open")
+        .whitelist_function("tsk_vs_close")
+
+        .whitelist_function("tsk_vs_part_get")
 
         .whitelist_function("tsk_fs_open_img")
         .whitelist_function("tsk_fs_close")

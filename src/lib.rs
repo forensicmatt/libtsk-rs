@@ -6,6 +6,10 @@ pub mod bindings;
 pub mod errors;
 /// Wrapper for TSK_IMG_INFO
 pub mod tsk_img;
+/// Wrapper for TSK_VS_INFO
+pub mod tsk_vs;
+/// Wrapper for TSK_VS_PART_INFO
+pub mod tsk_vs_part;
 /// Wrapper for TSK_FS_INFO
 pub mod tsk_fs;
 /// Wrapper for TSK_FS_FILE
