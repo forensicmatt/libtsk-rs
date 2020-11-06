@@ -3,7 +3,7 @@ use std::ffi::CStr;
 use crate::{
     errors::TskError,
     tsk_img::TskImg,
-    tsk_vs_part::TskVsPart,
+    tsk_vs_part::{TskVsPart, TskVsPartIterator},
     bindings as tsk
 };
 
@@ -42,8 +42,14 @@ impl TskVs {
         Ok( Self { handle } )
     }
 
+    /// Get a specific TskVsPart at the given index
     pub fn get_partition_at_index(&self, index: u64) -> Result<TskVsPart, TskError> {
         TskVsPart::new(self, index)
+    }
+
+    /// Get a partition iterator that yields TskVsPart structs
+    pub fn get_partition_iter(&self) -> Result<TskVsPartIterator, TskError> {
+        Ok(TskVsPart::new(self, 0)?.into_iter())
     }
 }
 impl Drop for TskVs {

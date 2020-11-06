@@ -1,3 +1,4 @@
+use std::ffi::{CStr};
 use crate::{
     errors::TskError,
     tsk_vs::TskVs,
@@ -19,6 +20,12 @@ impl TskVsPart {
         Ok(Self(tsk_vs_part))
     }
 
+    /// Get the description string
+    pub fn desc(&self) -> String {
+        let desc = unsafe { CStr::from_ptr((*self.0).desc) }.to_string_lossy();
+        desc.to_string().clone()
+    }
+
     /// Get an iterator based off this TskVsPart struct
     pub fn into_iter(self) -> TskVsPartIterator {
         TskVsPartIterator(self.0)
@@ -26,8 +33,15 @@ impl TskVsPart {
 }
 impl std::fmt::Debug for TskVsPart {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_tuple("TskVsPart")
-         .field(&(unsafe{*self.0}))
+        f.debug_struct("TskVsPart")
+         .field("addr", &(unsafe{*self.0}.addr))
+         .field("desc", &self.desc())
+         .field("flags", &(unsafe{*self.0}.flags))
+         .field("len", &(unsafe{*self.0}.len))
+         .field("slot_num", &(unsafe{*self.0}.slot_num))
+         .field("start", &(unsafe{*self.0}.	start))
+         .field("table_num", &(unsafe{*self.0}.	table_num))
+         .field("tag", &(unsafe{*self.0}.tag))
          .finish()
     }
 }

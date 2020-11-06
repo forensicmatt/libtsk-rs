@@ -1,5 +1,3 @@
-/// The log crate macors allow us to call debug!(), warn!(), etc
-#[macro_use] extern crate log;
 /// The bindings module are the automated bindgen created bindings
 pub mod bindings;
 /// Error handling for this crate
