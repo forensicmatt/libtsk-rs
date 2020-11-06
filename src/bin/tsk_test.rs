@@ -12,6 +12,11 @@ fn main() {
     let tsk_vs_part = tsk_vs.get_partition_at_index(0)
         .expect("Could not open TskVsPart at offset 0");
     println!("{:?}", tsk_vs_part);
+
+    let iter = tsk_vs_part.into_iter();
+    for vs_part in iter {
+        println!("{:?}", vs_part);
+    }
     drop(tsk_vs);
 
 
