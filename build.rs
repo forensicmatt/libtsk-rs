@@ -1,23 +1,20 @@
 extern crate bindgen;
-
 use std::env;
 use std::path::PathBuf;
+
 
 fn main() {
     println!(r"cargo:rerun-if-changed=wrapper.h");
     println!(r"cargo:rustc-link-lib=libtsk");
 
-    // TODO: Make more dynamic and cross platform (might need help here)
-    // On Windows Ole32 is required
-    println!(r"cargo:rustc-link-lib=Ole32");
     println!(r"cargo:rustc-link-search=D:\libraries\sleuthkit-4.10.0\win32\x64\Release_NoLibs");
-    // Ole32 can be found in Windows Kits
-    println!(r"cargo:rustc-link-search=C:\Program Files (x86)\Windows Kits\10\Lib\10.0.19041.0\um\x64");
-    println!(r"cargo:rustc-link-arg=/NODEFAULTLIB:libtsk");
+
+    #[cfg(target_os = "windows")]
+    windows_setup();
+
     let bindings = bindgen::Builder::default()
         .header("wrapper.h")
         .parse_callbacks(Box::new(bindgen::CargoCallbacks))
-        // .clang_args(&["-x", "c++"])
         .clang_args(&["-I", "sleuthkit"])
         .whitelist_function("tsk_error_get")
         
@@ -45,4 +42,22 @@ fn main() {
     bindings
         .write_to_file(out_path.join("bindings.rs"))
         .expect("Couldn't write bindings!");
+}
+
+
+#[cfg(target_os = "windows")]
+fn windows_setup() {
+    use winreg::{enums::HKEY_LOCAL_MACHINE, RegKey};
+
+    let hklm = RegKey::predef(HKEY_LOCAL_MACHINE);
+    let sdk_key = hklm.open_subkey(r"SOFTWARE\Wow6432Node\Microsoft\Microsoft SDKs\Windows\v10.0")
+        .expect("Error getting SDK key");
+
+    let installation_folder: String = sdk_key.get_value("InstallationFolder").expect("Cant get InstallationFolder");
+    let product_version: String = sdk_key.get_value("ProductVersion").expect("Cant get ProductVersion");
+    let sdk_path = format!(r"{}Lib\{}\um\x64", &installation_folder, &product_version);
+
+    println!(r"cargo:rustc-link-search={}", sdk_path);
+    println!(r"cargo:rustc-link-lib=Ole32");
+    println!(r"cargo:rustc-link-arg=/NODEFAULTLIB:libtsk");
 }
