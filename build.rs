@@ -1,7 +1,7 @@
 extern crate bindgen;
 use std::process::Command;
 use std::env;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 #[cfg(target_os = "windows")]
 use winreg::{enums::HKEY_LOCAL_MACHINE, RegKey};
@@ -47,8 +47,6 @@ fn main() {
 
 #[cfg(target_os = "windows")]
 fn windows_compile_tsk() {
-    let hklm = RegKey::predef(HKEY_LOCAL_MACHINE);
-
     // First we need the x86 program path
     let program_path = PathBuf::from(
         std::env::var("ProgramFiles(x86)")
