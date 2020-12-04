@@ -45,4 +45,19 @@ fn test_tsk_wrappers() {
     let mft_fh = tsk_fs.file_open_meta(0)
         .expect("Could not open $MFT");
     println!("{:?}", mft_fh);
+
+    let attr_0 = mft_fh.get_attr_at_index(0)
+        .expect("Could not get attribute 0 for $MFT");
+    println!("{:?}", attr_0);
+
+    let attr_99 = mft_fh.get_attr_at_index(99);
+    assert_eq!(attr_99.is_err(), true);
+    println!("{:?}", attr_99);
+
+    let attr_iter = mft_fh.get_attr_iter()
+        .expect("Could not get attribute iterator for $MFT");
+
+    for attr in attr_iter {
+        println!("{:?}", attr);
+    }
 }
