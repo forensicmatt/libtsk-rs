@@ -1,5 +1,23 @@
 extern crate tsk;
 use tsk::tsk_img::TskImg;
+use tsk::tsk_fs_dir::TskFsDir;
+
+
+#[cfg(target_os = "windows")]
+#[test]
+fn test_tsk_wrappers_dir() {
+    let source = r"\\.\C:";
+    let tsk_img = TskImg::from_source(source)
+        .expect("Could not create TskImg");
+    println!("{:?}", tsk_img);
+
+    let tsk_fs = tsk_img.get_fs_from_offset(0)
+        .expect("Could not open TskFs at offset 0");
+
+    let root_fh = TskFsDir::from_meta(&tsk_fs, 5)
+        .expect("Could not open root folder");
+    println!("{:?}", root_fh);
+}
 
 
 #[cfg(target_os = "windows")]
