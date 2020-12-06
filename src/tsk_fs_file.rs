@@ -84,16 +84,16 @@ impl TskFsFile {
 
     /// Is unallocated
     pub fn is_unallocated(&self) -> bool {
-        let this = unsafe { self.handle.as_ptr() };
-        let meta = unsafe { (*this).meta };
-        unsafe{(*meta)}.flags & tsk::TSK_FS_META_FLAG_ENUM_TSK_FS_META_FLAG_UNALLOC > 0
+        let tsk_fs_file_ptr = self.handle.as_ptr();
+        let meta = unsafe { (*tsk_fs_file_ptr).meta };
+        unsafe{*meta}.flags & tsk::TSK_FS_META_FLAG_ENUM_TSK_FS_META_FLAG_UNALLOC > 0
     }
 
     /// Is Dir
     pub fn is_dir(&self) -> bool {
-        let this = unsafe { self.handle.as_ptr() };
-        let meta = unsafe { (*this).meta };
-        unsafe{(*meta)}.type_ & tsk::TSK_FS_META_TYPE_ENUM_TSK_FS_META_TYPE_DIR > 0
+        let tsk_fs_file_ptr = self.handle.as_ptr();
+        let meta = unsafe { (*tsk_fs_file_ptr).meta };
+        unsafe{*meta}.type_ & tsk::TSK_FS_META_TYPE_ENUM_TSK_FS_META_TYPE_DIR > 0
     }
 }
 impl Drop for TskFsFile {
