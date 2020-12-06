@@ -33,8 +33,9 @@ fn main() {
         .whitelist_function("tsk_fs_file_open")
         .whitelist_function("tsk_fs_file_open_meta")
         .whitelist_function("tsk_fs_file_close")
-        
         .whitelist_function("tsk_fs_file_read")
+        .whitelist_function("tsk_fs_file_attr_get_idx")
+
         .whitelist_type("TSK_FS_TYPE_ENUM")
         .generate()
         .expect("Unable to generate bindings");
