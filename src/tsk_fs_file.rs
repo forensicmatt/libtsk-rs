@@ -89,12 +89,17 @@ impl Drop for TskFsFile {
 }
 
 
-/// Wrapper for TSK_FS_ATTR 
-pub struct TskFsAttr(*const tsk::TSK_FS_ATTR);
-impl TskFsAttr {
+/// Wrapper for TSK_FS_ATTR. This maintains a lifetime reference of TskFsFile so
+/// that we are guaranteed that the pointers are always valid. Other wise we
+/// have no safety guarantee that the pointers are still available. 
+pub struct TskFsAttr<'a>{
+    tsk_fs_file: &'a TskFsFile,
+    tsk_fs_attr: *const tsk::TSK_FS_ATTR
+}
+impl<'a> TskFsAttr<'a> {
     /// Create a TSK_FS_ATTR wrapper given the TskFsFile and index of the attribute
     pub fn from_index(
-        tsk_fs_file: &TskFsFile, 
+        tsk_fs_file: &'a TskFsFile, 
         tsk_fs_file_attr_get_idx: u16
     ) -> Result<Self, TskError> {
         // Get a pointer to the TSK_FS_ATTR sturct
@@ -119,23 +124,28 @@ impl TskFsAttr {
             );
         }
 
-        Ok(Self(tsk_fs_attr))
+        Ok(
+            Self {
+                tsk_fs_file, 
+                tsk_fs_attr
+            }
+        )
     }
 
     /// Get the name of the attribute if available
     pub fn name(&self) -> Option<String> {
         // First check if the name is null
-        if unsafe { (*self.0).name }.is_null() {
+        if unsafe { (*self.tsk_fs_attr).name }.is_null() {
             return None;
         }
 
-        let name = unsafe { CStr::from_ptr((*self.0).name) }.to_string_lossy();
+        let name = unsafe { CStr::from_ptr((*self.tsk_fs_attr).name) }.to_string_lossy();
         Some(name.to_string().clone())
     }
 
     /// Get a str representation of the type
     pub fn type_name(&self) -> &str {
-        match unsafe { (*self.0).type_ } {
+        match unsafe { (*self.tsk_fs_attr).type_ } {
             0 => "NOT_FOUND",
             1 => "DEFAULT|HFS_DEFAULT",
             16 => "NTFS_SI",
@@ -165,18 +175,18 @@ impl TskFsAttr {
     }
 
     /// Get an iterator based off this TskFsAttr struct
-    pub fn into_iter(self) -> TskFsAttrIterator {
-        TskFsAttrIterator(self.0)
+    pub fn into_iter(self) -> TskFsAttrIterator<'a> {
+        TskFsAttrIterator(self)
     }
 }
-impl std::fmt::Debug for TskFsAttr {
+impl<'a> std::fmt::Debug for TskFsAttr<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("TskFsAttr")
-         .field("id", &(unsafe{*self.0}.id))
+         .field("id", &(unsafe{*self.tsk_fs_attr}.id))
          .field("name", &self.name())
-         .field("type", &(unsafe{*self.0}.type_))
+         .field("type", &(unsafe{*self.tsk_fs_attr}.type_))
          .field("type_name", &self.type_name())
-         .field("size", &(unsafe{*self.0}.size))
+         .field("size", &(unsafe{*self.tsk_fs_attr}.size))
          .finish()
     }
 }
@@ -184,17 +194,27 @@ impl std::fmt::Debug for TskFsAttr {
 
 /// An iterator over a TSK_FS_ATTR pointer which uses the
 /// structs next attribute to iterate.
-pub struct TskFsAttrIterator(*const tsk::TSK_FS_ATTR);
-impl Iterator for TskFsAttrIterator {
-    type Item = TskFsAttr;
+pub struct TskFsAttrIterator<'a>(TskFsAttr<'a>);
+impl<'a> Iterator for TskFsAttrIterator<'a> {
+    type Item = TskFsAttr<'a>;
     
-    fn next(&mut self) -> Option<TskFsAttr> {
-        if self.0.is_null() {
+    fn next(&mut self) -> Option<TskFsAttr<'a>> {
+        if self.0.tsk_fs_attr.is_null() {
             return None;
         }
 
-        let next = unsafe { *self.0 }.next as *const tsk::TSK_FS_ATTR;
-        let current = TskFsAttr(self.0);
+        let next = unsafe {
+            TskFsAttr {
+                tsk_fs_file: self.0.tsk_fs_file,
+                tsk_fs_attr: (*self.0.tsk_fs_attr).next as *const tsk::TSK_FS_ATTR
+            }
+        };
+
+        let current = TskFsAttr {
+            tsk_fs_file: self.0.tsk_fs_file,
+            tsk_fs_attr: self.0.tsk_fs_attr
+        };
+
         self.0 = next;
         
         Some(current)
