@@ -7,15 +7,19 @@ use crate::{
 };
 
 
-/// Wrapper for TSK_FS_FILE 
+/// Wrapper for TSK_FS_FILE. The TSK_FS_FILE can never outlast the TSK_FS
+/// 
+/// 'fs => Filesystem lifetime.
 #[derive(Debug)]
-pub struct TskFsFile {
+pub struct TskFsFile<'fs> {
+    /// A TskFsFile can never outlive its TskFs
+    tsk_fs: &'fs TskFs,
     /// The ptr to the TSK_FS_FILE struct
     pub handle: NonNull<tsk::TSK_FS_FILE>
 }
-impl TskFsFile {
+impl<'fs> TskFsFile<'fs> {
     /// Create a TSK_FS_FILE wrapper given TskFs and path
-    pub fn from_path(tsk_fs: &TskFs, path: &str) -> Result<TskFsFile, TskError> {
+    pub fn from_path(tsk_fs: &'fs TskFs, path: &str) -> Result<Self, TskError> {
         // Create a CString for the provided source
         let path_c = CString::new(path)
             .map_err(|e| TskError::generic(format!("Unable to create CString from path {}: {:?}", path, e)))?;
@@ -42,11 +46,11 @@ impl TskFsFile {
             Some(h) => h
         };
 
-        Ok( Self { handle } )
+        Ok( Self { tsk_fs, handle } )
     }
 
     /// Create a TSK_FS_FILE wrapper given TskFs and inode
-    pub fn from_meta(tsk_fs: &TskFs, inode: u64) -> Result<TskFsFile, TskError> {
+    pub fn from_meta(tsk_fs: &'fs TskFs, inode: u64) -> Result<TskFsFile, TskError> {
         // Get a pointer to the TSK_FS_FILE sturct
         let tsk_fs_file = unsafe {tsk::tsk_fs_file_open_meta(
             tsk_fs.handle.as_ptr(),
@@ -69,7 +73,7 @@ impl TskFsFile {
             Some(h) => h
         };
 
-        Ok( Self { handle } )
+        Ok( Self { tsk_fs, handle } )
     }
 
     /// Get the TskFsAttr at a given index for this TskFsFile (note this is not the id)
@@ -78,8 +82,9 @@ impl TskFsFile {
     }
 
     /// Get a TskFsAttrIterator for this TskFsFile
-    pub fn get_attr_iter(&self) -> Result<TskFsAttrIterator, TskError> {
-        Ok(TskFsAttr::from_index(self, 0)?.into_iter())
+    pub fn get_attr_iter<'f>(&'fs self) -> Result<TskFsAttrIterator<'fs, 'f>, TskError> {
+        let tsk_fs_attr = TskFsAttr::from_index(self, 0)?;
+        Ok(tsk_fs_attr.into_iter())
     }
 
     /// Is unallocated
@@ -96,7 +101,7 @@ impl TskFsFile {
         unsafe{*meta}.type_ & tsk::TSK_FS_META_TYPE_ENUM_TSK_FS_META_TYPE_DIR > 0
     }
 }
-impl Drop for TskFsFile {
+impl<'fs> Drop for TskFsFile<'fs> {
     fn drop(&mut self) {
         unsafe { tsk::tsk_fs_file_close(self.handle.as_ptr()) };
     }
@@ -106,14 +111,17 @@ impl Drop for TskFsFile {
 /// Wrapper for TSK_FS_ATTR. This maintains a lifetime reference of TskFsFile so
 /// that we are guaranteed that the pointers are always valid. Otherwise, we
 /// have no safety guarantee that the pointers are still available. 
-pub struct TskFsAttr<'a>{
-    tsk_fs_file: &'a TskFsFile,
+/// 
+/// `fs => Filesystem lifetime
+/// 'f => File lifetime
+pub struct TskFsAttr<'fs, 'f>{
+    tsk_fs_file: &'f TskFsFile<'fs>,
     tsk_fs_attr: *const tsk::TSK_FS_ATTR
 }
-impl<'a> TskFsAttr<'a> {
+impl<'fs, 'f> TskFsAttr<'fs, 'f> {
     /// Create a TSK_FS_ATTR wrapper given the TskFsFile and index of the attribute
     pub fn from_index(
-        tsk_fs_file: &'a TskFsFile, 
+        tsk_fs_file: &'f TskFsFile<'fs>, 
         tsk_fs_file_attr_get_idx: u16
     ) -> Result<Self, TskError> {
         // Get a pointer to the TSK_FS_ATTR sturct
@@ -189,11 +197,11 @@ impl<'a> TskFsAttr<'a> {
     }
 
     /// Get an iterator based off this TskFsAttr struct
-    pub fn into_iter(self) -> TskFsAttrIterator<'a> {
+    pub fn into_iter(self) -> TskFsAttrIterator<'fs, 'f> {
         TskFsAttrIterator(self)
     }
 }
-impl<'a> std::fmt::Debug for TskFsAttr<'a> {
+impl<'fs, 'f> std::fmt::Debug for TskFsAttr<'fs, 'f> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("TskFsAttr")
          .field("id", &(unsafe{*self.tsk_fs_attr}.id))
@@ -208,11 +216,11 @@ impl<'a> std::fmt::Debug for TskFsAttr<'a> {
 
 /// An iterator over a TSK_FS_ATTR pointer which uses the
 /// structs next attribute to iterate.
-pub struct TskFsAttrIterator<'a>(TskFsAttr<'a>);
-impl<'a> Iterator for TskFsAttrIterator<'a> {
-    type Item = TskFsAttr<'a>;
+pub struct TskFsAttrIterator<'fs, 'f>(TskFsAttr<'fs, 'f>);
+impl<'fs, 'f> Iterator for TskFsAttrIterator<'fs, 'f> {
+    type Item = TskFsAttr<'fs, 'f>;
     
-    fn next(&mut self) -> Option<TskFsAttr<'a>> {
+    fn next(&mut self) -> Option<TskFsAttr<'fs, 'f>> {
         if self.0.tsk_fs_attr.is_null() {
             return None;
         }
