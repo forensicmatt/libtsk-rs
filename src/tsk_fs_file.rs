@@ -81,6 +81,20 @@ impl TskFsFile {
     pub fn get_attr_iter(&self) -> Result<TskFsAttrIterator, TskError> {
         Ok(TskFsAttr::from_index(self, 0)?.into_iter())
     }
+
+    /// Is unallocated
+    pub fn is_unallocated(&self) -> bool {
+        let this = unsafe { self.handle.as_ptr() };
+        let meta = unsafe { (*this).meta };
+        unsafe{(*meta)}.flags & tsk::TSK_FS_META_FLAG_ENUM_TSK_FS_META_FLAG_UNALLOC > 0
+    }
+
+    /// Is Dir
+    pub fn is_dir(&self) -> bool {
+        let this = unsafe { self.handle.as_ptr() };
+        let meta = unsafe { (*this).meta };
+        unsafe{(*meta)}.type_ & tsk::TSK_FS_META_TYPE_ENUM_TSK_FS_META_TYPE_DIR > 0
+    }
 }
 impl Drop for TskFsFile {
     fn drop(&mut self) {
@@ -90,7 +104,7 @@ impl Drop for TskFsFile {
 
 
 /// Wrapper for TSK_FS_ATTR. This maintains a lifetime reference of TskFsFile so
-/// that we are guaranteed that the pointers are always valid. Other wise we
+/// that we are guaranteed that the pointers are always valid. Otherwise, we
 /// have no safety guarantee that the pointers are still available. 
 pub struct TskFsAttr<'a>{
     tsk_fs_file: &'a TskFsFile,

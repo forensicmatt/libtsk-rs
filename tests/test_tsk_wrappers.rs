@@ -38,6 +38,12 @@ fn test_tsk_wrappers() {
         .expect("Could not open TskFs at offset 0");
     println!("{:?}", tsk_fs);
 
+    let root_fh = tsk_fs.file_open_meta(5)
+        .expect("Could not open root folder");
+    println!("{:?}", root_fh);
+    assert_eq!(true, root_fh.is_dir());
+    drop(root_fh);
+
     let mft_fh = tsk_fs.file_open("/$MFT")
         .expect("Could not open $MFT");
     println!("{:?}", mft_fh);
@@ -45,6 +51,8 @@ fn test_tsk_wrappers() {
     let mft_fh = tsk_fs.file_open_meta(0)
         .expect("Could not open $MFT");
     println!("{:?}", mft_fh);
+    assert_eq!(false, mft_fh.is_unallocated());
+    
 
     let attr_0 = mft_fh.get_attr_at_index(0)
         .expect("Could not get attribute 0 for $MFT");
