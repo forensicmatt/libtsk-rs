@@ -14,3 +14,5 @@ pub mod tsk_fs;
 pub mod tsk_fs_file;
 /// Wrapper for TSK_FS_DIR
 pub mod tsk_fs_dir;
+/// Wrapper for TSK_FS_NAME
+pub mod tsk_fs_name;

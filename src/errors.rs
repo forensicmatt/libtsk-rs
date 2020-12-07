@@ -2,6 +2,8 @@
 pub enum ErrorType {
     LibTskError,
     TskFsAttr,
+    TskFsName,
+    TskFsDir,
     Generic
 }
 #[derive(Debug)]
@@ -10,6 +12,22 @@ pub struct TskError {
     pub kind: ErrorType,
 }
 impl TskError {
+    /// Error function for TskFsDir operations
+    pub fn tsk_fs_dir_error(message: String) -> Self {
+        Self {
+            message: message,
+            kind: ErrorType::TskFsDir,
+        }
+    }
+
+    /// Error function for TskFsName operations
+    pub fn tsk_fs_name_error(message: String) -> Self {
+        Self {
+            message: message,
+            kind: ErrorType::TskFsName,
+        }
+    }
+
     /// Error function for TskFsAttr operations
     pub fn tsk_attr_error(message: String) -> Self {
         Self {

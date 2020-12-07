@@ -17,6 +17,10 @@ fn test_tsk_wrappers_dir() {
     let root_fh = TskFsDir::from_meta(&tsk_fs, 5)
         .expect("Could not open root folder");
     println!("{:?}", root_fh);
+
+    let tsk_fs_name = root_fh.get_name(0)
+        .expect("Error getting name at index 0");
+    println!("{:?}", tsk_fs_name);
 }
 
 
