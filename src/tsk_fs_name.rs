@@ -35,11 +35,29 @@ impl TskFsName {
         let name = unsafe { CStr::from_ptr((*self.0).name) }.to_string_lossy();
         Some(name.to_string().clone())
     }
+
+    /// Get the short name of the attribute if available
+    pub fn shrt_name(&self) -> Option<String> {
+        // First check if the name is null
+        if unsafe { (*self.0).shrt_name }.is_null() {
+            return None;
+        }
+        let shrt_name = unsafe { CStr::from_ptr((*self.0).shrt_name) }.to_string_lossy();
+        Some(shrt_name.to_string().clone())
+    }
 }
 impl std::fmt::Debug for TskFsName {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("TskFsName")
          .field("name", &self.name())
+         .field("shrt_name", &self.shrt_name())
+         .field("meta_addr", &unsafe{(*self.0).meta_addr})
+         .field("meta_seq", &unsafe{(*self.0).meta_seq})
+         .field("par_addr", &unsafe{(*self.0).par_addr})
+         .field("par_seq", &unsafe{(*self.0).par_seq})
+         .field("type", &unsafe{(*self.0).type_})
+         .field("flags", &unsafe{(*self.0).flags})
+         .field("date_added", &unsafe{(*self.0).date_added})
          .finish()
     }
 }
