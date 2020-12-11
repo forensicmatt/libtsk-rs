@@ -8,20 +8,19 @@ use crate::{
 };
 
 
-/// Wrapper for TSK_FS_DIR
-#[derive(Debug)]
+/// Wrapper for TSK_FS_DIR that implements helper functions.
 pub struct TskFsDir<'fs> {
     /// A TskFsDir can never outlive its TskFs
-    tsk_fs: &'fs TskFs,
+    _tsk_fs: &'fs TskFs,
     /// The ptr to the TSK_FS_DIR struct
     pub handle: NonNull<tsk::TSK_FS_DIR>
 }
 impl<'fs> TskFsDir<'fs> {
     /// Create a TSK_FS_DIR wrapper given TskFs and inode
-    pub fn from_meta(tsk_fs: &'fs TskFs, inode: u64) -> Result<Self, TskError> {
+    pub fn from_meta(_tsk_fs: &'fs TskFs, inode: u64) -> Result<Self, TskError> {
         // Get a pointer to the TSK_FS_DIR sturct
         let tsk_fs_dir = unsafe {tsk::tsk_fs_dir_open_meta(
-            tsk_fs.handle.as_ptr(),
+            _tsk_fs.handle.as_ptr(),
             inode as _
         )};
 
@@ -40,9 +39,10 @@ impl<'fs> TskFsDir<'fs> {
             Some(h) => h
         };
 
-        Ok( Self { tsk_fs, handle } )
+        Ok( Self { _tsk_fs, handle } )
     }
 
+    /// Get a TskFsName at a given index of the TSK_FS_DIR
     pub fn get_name(&self, index: u64) -> Result<TskFsName, TskError> {
         // Get a pointer to the TSK_FS_FILE sturct
         let tsk_fs_name = unsafe {tsk::tsk_fs_dir_get_name(
@@ -63,9 +63,60 @@ impl<'fs> TskFsDir<'fs> {
 
         Ok(TskFsName::from_ptr(tsk_fs_name)?)
     }
+
+    /// Get an iterator that iterates TskFsNames of this TskFsDir
+    pub fn get_name_iter<'d>(&'d self) -> DirNameIter<'fs, 'd> {
+        DirNameIter {
+            tsk_fs_dir: self,
+            index: 0
+        }
+    }
+}
+impl<'fs> std::fmt::Debug for TskFsDir<'fs> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let tsk_fs_dir_ptr = self.handle.as_ptr();
+        f.debug_struct("TskFsDir")
+         .field("addr", unsafe{&(*tsk_fs_dir_ptr).addr})
+         .field("seq", unsafe{&(*tsk_fs_dir_ptr).seq})
+         .field("fs_file", unsafe{&(*tsk_fs_dir_ptr).fs_file})
+         .field("names_used", unsafe{&(*tsk_fs_dir_ptr).names_used})
+         .field("names_alloc", unsafe{&(*tsk_fs_dir_ptr).names_alloc})
+         .field("names", unsafe{&(*tsk_fs_dir_ptr).names})
+         .finish()
+    }
 }
 impl<'fs> Drop for TskFsDir<'fs> {
     fn drop(&mut self) {
         unsafe { tsk::tsk_fs_dir_close(self.handle.as_ptr()) };
+    }
+}
+
+
+/// DirNameIter is an iterator for the allocated TskFsName of a given TskFsDir.
+pub struct DirNameIter<'fs, 'd>{
+    tsk_fs_dir: &'d TskFsDir<'fs>,
+    index: u64
+}
+impl<'fs, 'd> Iterator for DirNameIter<'fs, 'd> {
+    type Item = TskFsName;
+    
+    fn next(&mut self) -> Option<TskFsName> {
+        let tsk_fs_dir_ptr = self.tsk_fs_dir.handle.as_ptr();
+        while self.index < unsafe {(*tsk_fs_dir_ptr).names_used} {
+            // Get the pointer to the TSK_FS_NAME from the names array at the given index
+            let ptr = unsafe {(*tsk_fs_dir_ptr).names.offset(self.index as isize)};
+
+            // Create the TskFsName wrapper for TSK_FS_NAME pointer
+            let name_attr = TskFsName::from_ptr(ptr)
+                .expect("DirNameIter names ptr is null!");
+            
+            // Update the index for the next fetch
+            self.index += 1;
+
+            // return the TskFsName
+            return Some(name_attr);
+        }
+        
+        None
     }
 }
