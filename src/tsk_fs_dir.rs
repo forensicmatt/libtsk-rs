@@ -1,5 +1,4 @@
-use std::ptr::{null_mut, NonNull};
-use std::ffi::{CStr, CString};
+use std::ffi::{CStr};
 use crate::{
     errors::TskError,
     tsk_fs::TskFs,
@@ -9,44 +8,47 @@ use crate::{
 
 
 /// Wrapper for TSK_FS_DIR that implements helper functions.
+#[derive(Clone)]
 pub struct TskFsDir<'fs> {
     /// A TskFsDir can never outlive its TskFs
-    _tsk_fs: &'fs TskFs,
+    tsk_fs_info_ptr: &'fs *mut tsk::TSK_FS_INFO,
     /// The ptr to the TSK_FS_DIR struct
-    pub handle: NonNull<tsk::TSK_FS_DIR>
+    tsk_fs_dir_ptr: *mut tsk::TSK_FS_DIR,
+    _release: bool
 }
 impl<'fs> TskFsDir<'fs> {
     /// Create a TSK_FS_DIR wrapper given TskFs and inode
-    pub fn from_meta(_tsk_fs: &'fs TskFs, inode: u64) -> Result<Self, TskError> {
+    pub fn from_meta(tsk_fs: &'fs TskFs, inode: u64) -> Result<Self, TskError> {
         // Get a pointer to the TSK_FS_DIR sturct
-        let tsk_fs_dir = unsafe {tsk::tsk_fs_dir_open_meta(
-            _tsk_fs.handle.as_ptr(),
+        let tsk_fs_dir_ptr = unsafe {tsk::tsk_fs_dir_open_meta(
+            tsk_fs.into(),
             inode as _
         )};
 
         // Ensure that the ptr is not null
-        let handle = match NonNull::new(tsk_fs_dir) {
-            None => {
-                // Get a ptr to the error msg
-                let error_msg_ptr = unsafe { tsk::tsk_error_get() };
-                // Get the error message from the string
-                let error_msg = unsafe { CStr::from_ptr(error_msg_ptr) }.to_string_lossy();
-                // Return an error which includes the TSK error message
-                return Err(TskError::lib_tsk_error(
-                    format!("There was an error opening {} as a dir: {}", inode, error_msg)
-                ));
-            },
-            Some(h) => h
-        };
+        if tsk_fs_dir_ptr.is_null() {
+            // Get a ptr to the error msg
+            let error_msg_ptr = unsafe { tsk::tsk_error_get() };
+            // Get the error message from the string
+            let error_msg = unsafe { CStr::from_ptr(error_msg_ptr) }.to_string_lossy();
+            // Return an error which includes the TSK error message
+            return Err(TskError::lib_tsk_error(
+                format!("There was an error opening {} as a dir: {}", inode, error_msg)
+            ));
+        }
 
-        Ok( Self { _tsk_fs, handle } )
+        Ok( Self { 
+            tsk_fs_info_ptr: tsk_fs.into(), 
+            tsk_fs_dir_ptr,
+            _release: true
+        } )
     }
 
     /// Get a TskFsName at a given index of the TSK_FS_DIR
     pub fn get_name(&self, index: u64) -> Result<TskFsName, TskError> {
         // Get a pointer to the TSK_FS_FILE sturct
         let tsk_fs_name = unsafe {tsk::tsk_fs_dir_get_name(
-            self.handle.as_ptr(),
+            self.tsk_fs_dir_ptr,
             index as _
         )};
 
@@ -71,37 +73,111 @@ impl<'fs> TskFsDir<'fs> {
             index: 0
         }
     }
+
+    /// Get an iterator that iterates TskFsNames of this TskFsDir
+    pub fn into_name_iter(self) -> IntoDirNameIter<'fs> {
+        IntoDirNameIter {
+            tsk_fs_dir: self,
+            index: 0
+        }
+    }
+
+    /// Get the mut ptr for TSK_FS_DIR 
+    pub fn as_mut_ptr(&mut self) -> *mut tsk::TSK_FS_DIR {
+        self.tsk_fs_dir_ptr
+    }
+}
+impl<'fs> Into<*mut tsk::TSK_FS_DIR> for &TskFsDir<'fs> {
+    fn into(self) -> *mut tsk::TSK_FS_DIR {
+        self.tsk_fs_dir_ptr
+    }
+}
+impl<'fs> Into<*mut tsk::TSK_FS_DIR> for TskFsDir<'fs> {
+    fn into(self) -> *mut tsk::TSK_FS_DIR {
+        self.tsk_fs_dir_ptr
+    }
+}
+impl<'fs, 'd> Into<&'d *mut tsk::TSK_FS_DIR> for &'d mut TskFsDir<'fs> {
+    fn into(self) -> &'d *mut tsk::TSK_FS_DIR {
+        &self.tsk_fs_dir_ptr
+    }
+}
+impl<'fs, 'd> Into<&'d *mut tsk::TSK_FS_DIR> for &'d TskFsDir<'fs> {
+    fn into(self) -> &'d *mut tsk::TSK_FS_DIR {
+        &self.tsk_fs_dir_ptr
+    }
 }
 impl<'fs> std::fmt::Debug for TskFsDir<'fs> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let tsk_fs_dir_ptr = self.handle.as_ptr();
         f.debug_struct("TskFsDir")
-         .field("addr", unsafe{&(*tsk_fs_dir_ptr).addr})
-         .field("seq", unsafe{&(*tsk_fs_dir_ptr).seq})
-         .field("fs_file", unsafe{&(*tsk_fs_dir_ptr).fs_file})
-         .field("names_used", unsafe{&(*tsk_fs_dir_ptr).names_used})
-         .field("names_alloc", unsafe{&(*tsk_fs_dir_ptr).names_alloc})
-         .field("names", unsafe{&(*tsk_fs_dir_ptr).names})
+         .field("addr", unsafe{&(*self.tsk_fs_dir_ptr).addr})
+         .field("seq", unsafe{&(*self.tsk_fs_dir_ptr).seq})
+         .field("fs_file", unsafe{&(*self.tsk_fs_dir_ptr).fs_file})
+         .field("names_used", unsafe{&(*self.tsk_fs_dir_ptr).names_used})
+         .field("names_alloc", unsafe{&(*self.tsk_fs_dir_ptr).names_alloc})
+         .field("names", unsafe{&(*self.tsk_fs_dir_ptr).names})
          .finish()
     }
 }
 impl<'fs> Drop for TskFsDir<'fs> {
     fn drop(&mut self) {
-        unsafe { tsk::tsk_fs_dir_close(self.handle.as_ptr()) };
+        if self._release {
+            unsafe { tsk::tsk_fs_dir_close(self.tsk_fs_dir_ptr) };
+        }
     }
 }
 
 
 /// DirNameIter is an iterator for the allocated TskFsName of a given TskFsDir.
+#[derive(Debug, Clone)]
+pub struct IntoDirNameIter<'fs>{
+    tsk_fs_dir: TskFsDir<'fs>,
+    index: u64
+}
+impl<'fs> Iterator for IntoDirNameIter<'fs> {
+    type Item = TskFsName;
+    
+    fn next(&mut self) -> Option<TskFsName> {
+        let tsk_fs_dir_ptr: *mut tsk::TSK_FS_DIR = self.tsk_fs_dir.as_mut_ptr();
+        let names_used =  unsafe {(*tsk_fs_dir_ptr).names_used};
+
+        if self.index < names_used {
+            // Get the pointer to the TSK_FS_NAME from the names array at the given index
+            let ptr = unsafe {(*tsk_fs_dir_ptr).names.offset(self.index as isize)};
+
+            // Create the TskFsName wrapper for TSK_FS_NAME pointer
+            let name_attr = TskFsName::from_ptr(ptr)
+                .expect("DirNameIter names ptr is null!");
+            
+            // Update the index for the next fetch
+            self.index += 1;
+
+            // return the TskFsName
+            return Some(name_attr);
+        }
+        
+        None
+    }
+}
+
+
+/// DirNameIter is an iterator for the allocated TskFsName of a given TskFsDir.
+#[derive(Debug, Clone)]
 pub struct DirNameIter<'fs, 'd>{
     tsk_fs_dir: &'d TskFsDir<'fs>,
     index: u64
+}
+impl<'fs, 'd> DirNameIter<'fs, 'd> {
+    pub fn get_dir(&self) -> &'d TskFsDir<'fs> {
+        self.tsk_fs_dir
+    }
 }
 impl<'fs, 'd> Iterator for DirNameIter<'fs, 'd> {
     type Item = TskFsName;
     
     fn next(&mut self) -> Option<TskFsName> {
-        let tsk_fs_dir_ptr = self.tsk_fs_dir.handle.as_ptr();
+        let tsk_fs_dir_ptr: *mut tsk::TSK_FS_DIR = self.tsk_fs_dir.into();
+
         while self.index < unsafe {(*tsk_fs_dir_ptr).names_used} {
             // Get the pointer to the TSK_FS_NAME from the names array at the given index
             let ptr = unsafe {(*tsk_fs_dir_ptr).names.offset(self.index as isize)};

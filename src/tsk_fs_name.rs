@@ -1,4 +1,3 @@
-use std::ptr::NonNull;
 use std::ffi::CStr;
 use crate::{
     errors::TskError,
@@ -24,6 +23,17 @@ impl TskFsName {
         }
 
         Ok(Self(tsk_fs_name))
+    }
+
+    /// TskFsName represents a directory file
+    pub fn is_dir(&self) -> bool {
+        let type_ = unsafe {(*self.0).type_};
+        type_ == tsk::TSK_FS_NAME_TYPE_ENUM_TSK_FS_NAME_TYPE_DIR
+    }
+
+    /// Get the inode for this TSK_FS_NAME
+    pub fn get_inode(&self) -> u64 {
+        unsafe {(*self.0).meta_addr}
     }
 
     /// Get the name of the attribute if available

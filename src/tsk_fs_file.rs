@@ -1,8 +1,9 @@
-use std::ptr::{null_mut, NonNull};
+use std::ptr::{null_mut};
 use std::ffi::{CStr, CString};
 use crate::{
     errors::TskError,
     tsk_fs::TskFs,
+    tsk_fs_name::TskFsName,
     bindings as tsk
 };
 
@@ -12,10 +13,12 @@ use crate::{
 /// 'fs => Filesystem lifetime.
 #[derive(Debug)]
 pub struct TskFsFile<'fs> {
-    /// A TskFsFile can never outlive its TskFs
-    tsk_fs: &'fs TskFs,
+    /// A TskFsFile can never outlive its TSK_FS_INFO
+    tsk_fs_info_ptr: &'fs *mut tsk::TSK_FS_INFO,
     /// The ptr to the TSK_FS_FILE struct
-    pub handle: NonNull<tsk::TSK_FS_FILE>
+    tsk_fs_file_ptr: *mut tsk::TSK_FS_FILE,
+    /// We dont always want to free a file pointer
+    _release: bool
 }
 impl<'fs> TskFsFile<'fs> {
     /// Create a TSK_FS_FILE wrapper given TskFs and path
@@ -25,55 +28,55 @@ impl<'fs> TskFsFile<'fs> {
             .map_err(|e| TskError::generic(format!("Unable to create CString from path {}: {:?}", path, e)))?;
 
         // Get a pointer to the TSK_FS_FILE sturct
-        let tsk_fs_file = unsafe {tsk::tsk_fs_file_open(
-            tsk_fs.handle.as_ptr(),
+        let tsk_fs_file_ptr = unsafe {tsk::tsk_fs_file_open(
+            tsk_fs.into(),
             null_mut(),
             path_c.as_ptr() as _
         )};
 
-        // Ensure that the ptr is not null
-        let handle = match NonNull::new(tsk_fs_file) {
-            None => {
-                // Get a ptr to the error msg
-                let error_msg_ptr = unsafe { tsk::tsk_error_get() };
-                // Get the error message from the string
-                let error_msg = unsafe { CStr::from_ptr(error_msg_ptr) }.to_string_lossy();
-                // Return an error which includes the TSK error message
-                return Err(TskError::lib_tsk_error(
-                    format!("There was an error opening {}: {}", path, error_msg)
-                ));
-            },
-            Some(h) => h
-        };
+        if tsk_fs_file_ptr.is_null() {
+            // Get a ptr to the error msg
+            let error_msg_ptr = unsafe { tsk::tsk_error_get() };
+            // Get the error message from the string
+            let error_msg = unsafe { CStr::from_ptr(error_msg_ptr) }.to_string_lossy();
+            // Return an error which includes the TSK error message
+            return Err(TskError::lib_tsk_error(
+                format!("There was an error opening {}: {}", path, error_msg)
+            ));
+        }
 
-        Ok( Self { tsk_fs, handle } )
+        Ok( Self { 
+            tsk_fs_info_ptr: tsk_fs.into(),
+            tsk_fs_file_ptr, 
+            _release: true
+        } )
     }
 
     /// Create a TSK_FS_FILE wrapper given TskFs and inode
     pub fn from_meta(tsk_fs: &'fs TskFs, inode: u64) -> Result<TskFsFile, TskError> {
         // Get a pointer to the TSK_FS_FILE sturct
-        let tsk_fs_file = unsafe {tsk::tsk_fs_file_open_meta(
-            tsk_fs.handle.as_ptr(),
+        let tsk_fs_file_ptr = unsafe {tsk::tsk_fs_file_open_meta(
+            tsk_fs.into(),
             null_mut(),
             inode as _
         )};
 
-        // Ensure that the ptr is not null
-        let handle = match NonNull::new(tsk_fs_file) {
-            None => {
-                // Get a ptr to the error msg
-                let error_msg_ptr = unsafe { tsk::tsk_error_get() };
-                // Get the error message from the string
-                let error_msg = unsafe { CStr::from_ptr(error_msg_ptr) }.to_string_lossy();
-                // Return an error which includes the TSK error message
-                return Err(TskError::lib_tsk_error(
-                    format!("There was an error opening {}: {}", inode, error_msg)
-                ));
-            },
-            Some(h) => h
-        };
+        if tsk_fs_file_ptr.is_null() {
+            // Get a ptr to the error msg
+            let error_msg_ptr = unsafe { tsk::tsk_error_get() };
+            // Get the error message from the string
+            let error_msg = unsafe { CStr::from_ptr(error_msg_ptr) }.to_string_lossy();
+            // Return an error which includes the TSK error message
+            return Err(TskError::lib_tsk_error(
+                format!("There was an error opening inode {}: {}", inode, error_msg)
+            ));
+        }
 
-        Ok( Self { tsk_fs, handle } )
+        Ok( Self { 
+            tsk_fs_info_ptr: tsk_fs.into(),
+            tsk_fs_file_ptr, 
+            _release: true
+        } )
     }
 
     /// Get the TskFsAttr at a given index for this TskFsFile (note this is not the id)
@@ -89,21 +92,26 @@ impl<'fs> TskFsFile<'fs> {
 
     /// Is unallocated
     pub fn is_unallocated(&self) -> bool {
-        let tsk_fs_file_ptr = self.handle.as_ptr();
-        let meta = unsafe { (*tsk_fs_file_ptr).meta };
+        let meta = unsafe { (*self.tsk_fs_file_ptr).meta };
         unsafe{*meta}.flags & tsk::TSK_FS_META_FLAG_ENUM_TSK_FS_META_FLAG_UNALLOC > 0
     }
 
     /// Is Dir
     pub fn is_dir(&self) -> bool {
-        let tsk_fs_file_ptr = self.handle.as_ptr();
-        let meta = unsafe { (*tsk_fs_file_ptr).meta };
+        let meta = unsafe { (*self.tsk_fs_file_ptr).meta };
         unsafe{*meta}.type_ & tsk::TSK_FS_META_TYPE_ENUM_TSK_FS_META_TYPE_DIR > 0
+    }
+}
+impl<'fs> Into<*mut tsk::TSK_FS_FILE> for &TskFsFile<'fs> {
+    fn into(self) -> *mut tsk::TSK_FS_FILE {
+        self.tsk_fs_file_ptr
     }
 }
 impl<'fs> Drop for TskFsFile<'fs> {
     fn drop(&mut self) {
-        unsafe { tsk::tsk_fs_file_close(self.handle.as_ptr()) };
+        if self._release {
+            unsafe { tsk::tsk_fs_file_close(self.tsk_fs_file_ptr) };
+        }
     }
 }
 
@@ -126,7 +134,7 @@ impl<'fs, 'f> TskFsAttr<'fs, 'f> {
     ) -> Result<Self, TskError> {
         // Get a pointer to the TSK_FS_ATTR sturct
         let tsk_fs_attr = unsafe {tsk::tsk_fs_file_attr_get_idx(
-            tsk_fs_file.handle.as_ptr(),
+            tsk_fs_file.into(),
             tsk_fs_file_attr_get_idx as _
         )};
 

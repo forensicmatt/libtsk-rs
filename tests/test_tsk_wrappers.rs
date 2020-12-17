@@ -30,10 +30,41 @@ fn test_tsk_wrappers_dir() {
 
 #[cfg(target_os = "windows")]
 #[test]
+fn test_tsk_iterate_root() {
+    let source = r"\\.\C:";
+
+    let tsk_img = TskImg::from_source(source)
+        .expect("Could not create TskImg");
+    println!("{:?}", tsk_img);
+
+    let tsk_fs = tsk_img.get_fs_from_offset(0)
+        .expect("Could not open TskFs at offset 0");
+
+    let file_iter = tsk_fs.iter_file_names()
+        .expect("Could not get FsNameIter");
+
+    let mut file_count = 0;
+    for (path, f) in file_iter {
+        if file_count == 512 {
+            break;
+        }
+        
+        if let Some(name) = f.name() {
+            println!("{}/{}", path, name);
+        }
+
+        file_count += 1;
+    }
+}
+
+
+#[cfg(target_os = "windows")]
+#[test]
 fn test_tsk_wrappers() {
     let source = r"\\.\PHYSICALDRIVE0";
     let tsk_img = TskImg::from_source(source)
         .expect("Could not create TskImg");
+
     let tsk_vs = tsk_img.get_vs_from_offset(0)
         .expect("Could not open TskVs at offset 0");
     println!("{:?}", tsk_vs);

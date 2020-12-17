@@ -54,7 +54,7 @@ impl TskImg {
 
     /// Get a TskFs at a given offset
     pub fn get_fs_from_offset(&self, offset: u64) -> Result<TskFs, TskError> {
-        TskFs::new(&self, offset)
+        TskFs::from_fs_offset(&self, offset)
     }
 }
 impl Drop for TskImg {
