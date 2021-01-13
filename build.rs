@@ -35,10 +35,13 @@ fn main() {
         .whitelist_function("tsk_fs_file_close")
         .whitelist_function("tsk_fs_file_read")
         .whitelist_function("tsk_fs_file_attr_get_idx")
+        .whitelist_function("tsk_fs_file_attr_get")
+        .whitelist_function("tsk_fs_attr_read")
 
         .whitelist_function("tsk_fs_dir_open_meta")
         .whitelist_function("tsk_fs_dir_close")
         .whitelist_function("tsk_fs_dir_get_name")
+        
 
         .whitelist_type("TSK_FS_TYPE_ENUM")
         .generate()

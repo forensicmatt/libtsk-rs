@@ -1,4 +1,5 @@
 extern crate tsk;
+use std::io::{Read, Seek, SeekFrom};
 use tsk::tsk_img::TskImg;
 use tsk::tsk_fs_dir::TskFsDir;
 
@@ -85,7 +86,6 @@ fn test_tsk_wrappers() {
     }
     drop(tsk_vs);
 
-
     let source = r"\\.\C:";
     let tsk_img = TskImg::from_source(source)
         .expect("Could not create TskImg");
@@ -99,6 +99,14 @@ fn test_tsk_wrappers() {
         .expect("Could not open root folder");
     println!("{:?}", root_fh);
     assert_eq!(true, root_fh.is_dir());
+
+    let mut tsk_attr = root_fh.get_attr_at_index(0)
+        .expect("Unable to get attribute at index 0 for root node.");
+    let mut buffer = vec![0; tsk_attr.size() as usize];
+    let _bytes_read = tsk_attr.read(&mut buffer)
+        .expect("Error reading attribute!");
+    println!("Attribute 0 -> {:02x?}", buffer);
+
     drop(root_fh);
 
     let mft_fh = tsk_fs.file_open("/$MFT")
@@ -109,6 +117,13 @@ fn test_tsk_wrappers() {
         .expect("Could not open $MFT");
     println!("{:?}", mft_fh);
     assert_eq!(false, mft_fh.is_unallocated());
+
+    let mut tsk_attr = mft_fh.get_attr()
+        .expect("Unable to get default attribute.");
+    let mut buffer = vec![0; 1024];
+    let _bytes_read = tsk_attr.read(&mut buffer)
+        .expect("Error reading attribute!");
+    println!("MFT default attribute -> {:02x?}", buffer);
     
 
     let attr_0 = mft_fh.get_attr_at_index(0)
@@ -125,4 +140,31 @@ fn test_tsk_wrappers() {
     for attr in attr_iter {
         println!("{:?}", attr);
     }
+}
+
+#[cfg(target_os = "windows")]
+#[test]
+fn test_tsk_attr_read_seek() {
+    let source = r"\\.\C:";
+    let tsk_img = TskImg::from_source(source)
+        .expect("Could not create TskImg");
+    println!("{:?}", tsk_img);
+
+    let tsk_fs = tsk_img.get_fs_from_offset(0)
+        .expect("Could not open TskFs at offset 0");
+    println!("{:?}", tsk_fs);
+    
+    let mft_fh = tsk_fs.file_open_meta(0)
+        .expect("Could not open $MFT");
+    println!("{:?}", mft_fh);
+    assert_eq!(false, mft_fh.is_unallocated());
+
+    let mut tsk_attr = mft_fh.get_attr()
+        .expect("Unable to get default attribute.");
+    let mut buffer = vec![0; 1024];
+    let _pos = tsk_attr.seek(SeekFrom::Start(1024))
+        .expect("Error seeking to pos 1024");
+    let _bytes_read = tsk_attr.read(&mut buffer)
+        .expect("Error reading attribute!");
+    println!("MFT record at offset 1024 -> {:02x?}", buffer);
 }

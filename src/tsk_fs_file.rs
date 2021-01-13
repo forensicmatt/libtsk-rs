@@ -1,9 +1,10 @@
+use std::io::{Read, Seek, SeekFrom};
+use std::convert::TryInto;
 use std::ptr::{null_mut};
 use std::ffi::{CStr, CString};
 use crate::{
     errors::TskError,
     tsk_fs::TskFs,
-    tsk_fs_name::TskFsName,
     bindings as tsk
 };
 
@@ -79,6 +80,11 @@ impl<'fs> TskFsFile<'fs> {
         } )
     }
 
+    /// Get the default TskFsAttr for this TskFsFile
+    pub fn get_attr(&self) -> Result<TskFsAttr, TskError> {
+        TskFsAttr::from_default(self)
+    }
+
     /// Get the TskFsAttr at a given index for this TskFsFile (note this is not the id)
     pub fn get_attr_at_index(&self, index: u16) -> Result<TskFsAttr, TskError> {
         TskFsAttr::from_index(self, index)
@@ -124,7 +130,8 @@ impl<'fs> Drop for TskFsFile<'fs> {
 /// 'f => File lifetime
 pub struct TskFsAttr<'fs, 'f>{
     tsk_fs_file: &'f TskFsFile<'fs>,
-    tsk_fs_attr: *const tsk::TSK_FS_ATTR
+    tsk_fs_attr: *const tsk::TSK_FS_ATTR,
+    _offset: i64
 }
 impl<'fs, 'f> TskFsAttr<'fs, 'f> {
     /// Create a TSK_FS_ATTR wrapper given the TskFsFile and index of the attribute
@@ -157,7 +164,42 @@ impl<'fs, 'f> TskFsAttr<'fs, 'f> {
         Ok(
             Self {
                 tsk_fs_file, 
-                tsk_fs_attr
+                tsk_fs_attr,
+                _offset: 0
+            }
+        )
+    }
+
+    /// Create a TSK_FS_ATTR wrapper given the TskFsFile and index of the attribute
+    pub fn from_default(
+        tsk_fs_file: &'f TskFsFile<'fs>
+    ) -> Result<Self, TskError> {
+        // Get a pointer to the TSK_FS_ATTR sturct
+        let tsk_fs_attr = unsafe {tsk::tsk_fs_file_attr_get(
+            tsk_fs_file.into()
+        )};
+
+        // Check for error
+        if tsk_fs_attr.is_null() {
+            // Get a ptr to the error msg
+            let error_msg_ptr = unsafe { tsk::tsk_error_get() };
+            // Get the error message from the string
+            let error_msg = unsafe { CStr::from_ptr(error_msg_ptr) }.to_string_lossy();
+            return Err(
+                TskError::tsk_attr_error(
+                    format!(
+                        "There was an error getting the default TskFsAttr: {}", 
+                        error_msg
+                    )
+                )
+            );
+        }
+
+        Ok(
+            Self {
+                tsk_fs_file, 
+                tsk_fs_attr,
+                _offset: 0
             }
         )
     }
@@ -171,6 +213,11 @@ impl<'fs, 'f> TskFsAttr<'fs, 'f> {
 
         let name = unsafe { CStr::from_ptr((*self.tsk_fs_attr).name) }.to_string_lossy();
         Some(name.to_string().clone())
+    }
+
+    /// Get the size of this attribute
+    pub fn size(&self) -> i64 {
+        return unsafe { (*self.tsk_fs_attr).size }
     }
 
     /// Get a str representation of the type
@@ -220,6 +267,128 @@ impl<'fs, 'f> std::fmt::Debug for TskFsAttr<'fs, 'f> {
          .finish()
     }
 }
+impl<'fs, 'f> Read for TskFsAttr<'fs, 'f> {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        let attr_size = self.size();
+
+        let read_size = if buf.len() as u64 > attr_size as u64 {
+            attr_size as u64
+        } else {
+            buf.len() as u64
+        };
+
+        // Get a pointer to the TSK_FS_FILE sturct
+        let bytes_read = unsafe {tsk::tsk_fs_attr_read(
+            self.tsk_fs_attr,
+            self._offset,
+            buf.as_mut_ptr() as _,
+            read_size,
+            tsk::TSK_FS_FILE_READ_FLAG_ENUM_TSK_FS_FILE_READ_FLAG_NONE
+        )};
+
+        if bytes_read == -1 {
+            // Get a ptr to the error msg
+            let error_msg_ptr = unsafe { tsk::tsk_error_get() };
+            // Get the error message from the string
+            let error_msg = unsafe { CStr::from_ptr(error_msg_ptr) }.to_string_lossy();
+            // Return an error which includes the TSK error message
+            return Err(
+                std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    format!("{}", error_msg)
+                )
+            );
+        }
+
+        Ok(bytes_read as usize)
+    }
+}
+impl<'fs, 'f> Seek for TskFsAttr<'fs, 'f> {
+    fn seek(&mut self, pos: SeekFrom) -> std::io::Result<u64> {
+        let attr_size = self.size();
+
+        match pos {
+            SeekFrom::Start(o) => {
+                if o > attr_size as u64 {
+                    return Err(
+                        std::io::Error::new(
+                            std::io::ErrorKind::Other,
+                            format!(
+                                "Offset Start({}) is greater than attribute size {}", 
+                                o, 
+                                attr_size
+                            )
+                        )
+                    );
+                } else {
+                    self._offset = match o.try_into() {
+                        Ok(o) => o,
+                        Err(e) => {
+                            return Err(
+                                std::io::Error::new(
+                                    std::io::ErrorKind::Other,
+                                    format!("Error casting offset to i64: {}", e)
+                                )
+                            );
+                        }
+                    }
+                }
+            },
+            SeekFrom::Current(o) => {
+                let location = o + self._offset;
+                if location < 0 {
+                    return Err(
+                        std::io::Error::new(
+                            std::io::ErrorKind::Other,
+                            format!("Cannot seek Current({}) from offset {}", o, self._offset)
+                        )
+                    );
+                } else {
+                    if location > attr_size {
+                        return Err(
+                            std::io::Error::new(
+                                std::io::ErrorKind::Other,
+                                format!(
+                                    "Offset Current({}) from {} is greater than attribute size {}", 
+                                    o, self._offset, attr_size
+                                )
+                            )
+                        );
+                    } else {
+                        self._offset = location;
+                    }
+                }
+            },
+            SeekFrom::End(o) => {
+                let location = o + self._offset;
+                if location < 0 {
+                    return Err(
+                        std::io::Error::new(
+                            std::io::ErrorKind::Other,
+                            format!("Cannot seek End({}) from offset {}", o, self._offset)
+                        )
+                    );
+                } else {
+                    if location > attr_size {
+                        return Err(
+                            std::io::Error::new(
+                                std::io::ErrorKind::Other,
+                                format!(
+                                    "Offset Current({}) from {} is greater than attribute size {}", 
+                                    o, self._offset, attr_size
+                                )
+                            )
+                        );
+                    } else {
+                        self._offset = location;
+                    }
+                }
+            }
+        }
+
+        Ok(self._offset as u64)
+    }
+}
 
 
 /// An iterator over a TSK_FS_ATTR pointer which uses the
@@ -236,13 +405,15 @@ impl<'fs, 'f> Iterator for TskFsAttrIterator<'fs, 'f> {
         let next = unsafe {
             TskFsAttr {
                 tsk_fs_file: self.0.tsk_fs_file,
-                tsk_fs_attr: (*self.0.tsk_fs_attr).next as *const tsk::TSK_FS_ATTR
+                tsk_fs_attr: (*self.0.tsk_fs_attr).next as *const tsk::TSK_FS_ATTR,
+                _offset: 0
             }
         };
 
         let current = TskFsAttr {
             tsk_fs_file: self.0.tsk_fs_file,
-            tsk_fs_attr: self.0.tsk_fs_attr
+            tsk_fs_attr: self.0.tsk_fs_attr,
+            _offset: 0
         };
 
         self.0 = next;
