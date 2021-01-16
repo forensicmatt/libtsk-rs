@@ -362,7 +362,7 @@ impl<'fs, 'f> Seek for TskFsAttr<'fs, 'f> {
                 }
             },
             SeekFrom::End(o) => {
-                let location = o + self._offset;
+                let location = o + attr_size;
                 if location < 0 {
                     return Err(
                         std::io::Error::new(
