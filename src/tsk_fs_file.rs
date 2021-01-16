@@ -299,6 +299,8 @@ impl<'fs, 'f> Read for TskFsAttr<'fs, 'f> {
                 )
             );
         }
+        // update offset by the number of bytes read
+        self._offset += bytes_read;
 
         Ok(bytes_read as usize)
     }
