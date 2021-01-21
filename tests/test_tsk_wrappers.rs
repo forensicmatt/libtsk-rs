@@ -99,6 +99,7 @@ fn test_tsk_wrappers() {
         .expect("Could not open root folder");
     println!("{:?}", root_fh);
     assert_eq!(true, root_fh.is_dir());
+    assert_eq!(5, root_fh.get_addr());
 
     let mut tsk_attr = root_fh.get_attr_at_index(0)
         .expect("Unable to get attribute at index 0 for root node.");

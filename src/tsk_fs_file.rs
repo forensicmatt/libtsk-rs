@@ -80,6 +80,27 @@ impl<'fs> TskFsFile<'fs> {
         } )
     }
 
+    /// Return the number of attributes in the file. 
+    pub fn attr_getsize(&self) -> Result<i32, TskError> {
+        // Get a pointer to the TSK_FS_FILE sturct
+        let attr_count = unsafe {tsk::tsk_fs_file_attr_getsize(
+            self.into()
+        )};
+
+        if attr_count == -1 {
+            // Get a ptr to the error msg
+            let error_msg_ptr = unsafe { tsk::tsk_error_get() };
+            // Get the error message from the string
+            let error_msg = unsafe { CStr::from_ptr(error_msg_ptr) }.to_string_lossy();
+            // Return an error which includes the TSK error message
+            return Err(TskError::lib_tsk_error(
+                format!("There was an error getting attribute count for indoe {}: {}", self.get_addr(), error_msg)
+            ));
+        }
+
+        Ok(attr_count)
+    }
+
     /// Get the default TskFsAttr for this TskFsFile
     pub fn get_attr(&self) -> Result<TskFsAttr, TskError> {
         TskFsAttr::from_default(self)
@@ -100,6 +121,12 @@ impl<'fs> TskFsFile<'fs> {
     pub fn is_unallocated(&self) -> bool {
         let meta = unsafe { (*self.tsk_fs_file_ptr).meta };
         unsafe{*meta}.flags & tsk::TSK_FS_META_FLAG_ENUM_TSK_FS_META_FLAG_UNALLOC > 0
+    }
+
+    /// Get inode address
+    pub fn get_addr(&self) -> u64 {
+        let meta = unsafe { (*self.tsk_fs_file_ptr).meta };
+        unsafe{*meta}.addr
     }
 
     /// Is Dir
