@@ -1,10 +1,12 @@
-use std::io::{Read, Seek, SeekFrom};
+use std::io::{Read, Write,Seek, SeekFrom};
 use std::convert::TryInto;
 use std::ptr::{null_mut};
 use std::ffi::{CStr, CString};
+use std::fs::File;
 use crate::{
     errors::TskError,
     tsk_fs::TskFs,
+    tsk_fs_meta::TskFsMeta,
     bindings as tsk
 };
 
@@ -133,6 +135,54 @@ impl<'fs> TskFsFile<'fs> {
     pub fn is_dir(&self) -> bool {
         let meta = unsafe { (*self.tsk_fs_file_ptr).meta };
         unsafe{*meta}.type_ & tsk::TSK_FS_META_TYPE_ENUM_TSK_FS_META_TYPE_DIR > 0
+    }
+
+    /// Get the TskFsMeta for this TskFsFile
+    pub fn get_meta(&self) -> Result<TskFsMeta, TskError> {
+        TskFsMeta::from_ptr(unsafe{(*self.tsk_fs_file_ptr).meta})
+    }
+
+    /// Get an iterator that reads the file in chunks of buf_size.
+    pub fn read_iter(&'fs self, buf_size: u64) -> TskFsFileIterator<'fs> {
+        let file_size = self.get_meta().unwrap().size();
+        TskFsFileIterator{
+            tsk_fs_file: self,
+            offset:0,
+            file_size: file_size as u64,
+            buf_size
+        }
+    }
+
+    /// Reads the exact buffer size from the file
+    pub fn read_exact(&self,offset:i64, buff: &mut [u8]) -> Result<u64,TskError>{
+        let bytes_read = unsafe{tsk::tsk_fs_file_read(
+            self.into(),
+            offset,
+            buff.as_mut_ptr() as *mut i8,
+            buff.len() as u64,
+            0
+        )};
+        match bytes_read {
+            -1 => {
+                // Get a ptr to the error msg
+                let error_msg_ptr = unsafe { tsk::tsk_error_get() };
+                // Get the error message from the string
+                let error_msg = unsafe { CStr::from_ptr(error_msg_ptr) }.to_string_lossy();
+                return Err(TskError::tsk_fs_file_error(
+                    format!("Error on read_exact() : {}", error_msg)
+                ));
+            }
+            _ => return Ok(bytes_read as u64),
+        };
+    }
+
+    /// Reads the file in chuncks to the specified path
+    pub fn read_to(&self,path:&str) -> Result<bool,TskError>{
+        let mut out_file = File::create(path).expect("Unable to open the file specified");
+        for chunck in self.read_iter(1024*1024){
+            out_file.write(&chunck.unwrap());
+        }
+        Ok(true)
     }
 }
 impl<'fs> Into<*mut tsk::TSK_FS_FILE> for &TskFsFile<'fs> {
@@ -448,5 +498,40 @@ impl<'fs, 'f> Iterator for TskFsAttrIterator<'fs, 'f> {
         self.0 = next;
         
         Some(current)
+    }
+}
+
+/// An iterator over TskFsFile. It reads the file in chuncks and return the chunck as vec.
+/// * ts_fs_file: is a reference to the TskFsFile that you want to read.
+/// * offset: keep track of the offset to be used for the next read operation.
+/// * file_size: the file size in bytes.
+/// * buf_size: the chunck size in bytes.
+pub struct TskFsFileIterator<'fs>{
+    tsk_fs_file: &'fs TskFsFile<'fs>,
+    offset: u64,
+    file_size: u64,
+    buf_size: u64
+}
+
+impl<'fs> Iterator for TskFsFileIterator<'fs> {
+    type Item = Result<Vec<u8>,TskError>;
+    fn next(&mut self) -> Option<Self::Item>{
+        let mut buf: Vec<u8>;
+        match self.file_size - self.offset {
+            // if we reached the end if the file then stop iterating.
+            0 => return None,
+            // if the remaing bytes are less than the buf_size, then allocate the a vec
+            // with a length of the remaining bytes instead of the full buf_size.
+            remaining if remaining < self.buf_size => buf = vec![0;(self.file_size - self.offset) as usize],
+            // else declare the buffer with a length of buf_size 
+            _ => buf = vec![0;self.buf_size as usize]
+        }
+        match self.tsk_fs_file.read_exact(self.offset as i64, &mut buf){
+            Ok(bytes_read) => {
+                self.offset+=bytes_read;
+                return Some(Ok(buf));
+            },
+            Err(e) => return Some(Err(e)) 
+        };
     }
 }

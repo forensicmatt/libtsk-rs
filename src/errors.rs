@@ -1,5 +1,7 @@
 #[derive(Debug)]
 pub enum ErrorType {
+    TskFsMeta,
+    TskFsFile,
     LibTskError,
     TskFsAttr,
     TskFsName,
@@ -49,6 +51,22 @@ impl TskError {
         Self {
             message: message,
             kind: ErrorType::LibTskError,
+        }
+    }
+
+    /// Error function for TskFsMeta operations
+    pub fn tsk_fs_meta_error(message: String) -> Self {
+        Self {
+            message: message,
+            kind: ErrorType::TskFsMeta,
+        }
+    }
+
+    /// Error function for TskFsFile operations
+    pub fn tsk_fs_file_error(message: String) -> Self {
+        Self {
+            message: message,
+            kind: ErrorType::TskFsFile,
         }
     }
 }
