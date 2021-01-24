@@ -54,19 +54,19 @@ impl TskError {
         }
     }
 
-    /// Error function for TskFsMeta operations
-    pub fn tsk_fs_meta_error(message: String) -> Self {
-        Self {
-            message: message,
-            kind: ErrorType::TskFsMeta,
+        /// Error function for TskFsMeta operations
+        pub fn tsk_fs_meta_error(message: String) -> Self {
+            Self {
+                message: message,
+                kind: ErrorType::TskFsMeta,
+            }
         }
-    }
-
-    /// Error function for TskFsFile operations
-    pub fn tsk_fs_file_error(message: String) -> Self {
-        Self {
-            message: message,
-            kind: ErrorType::TskFsFile,
+    
+        /// Error function for TskFsFile operations
+        pub fn tsk_fs_file_error(message: String) -> Self {
+            Self {
+                message: message,
+                kind: ErrorType::TskFsFile,
+            }
         }
-    }
 }

@@ -5,7 +5,66 @@ use crate::{
     tsk_fs_dir::TskFsDir,
     bindings as tsk
 };
+use std::fmt::{Display, Formatter, Result as FmtReasult};
+use std::convert::From;
 
+#[derive(Debug)]
+pub enum TskFsMetaFlag {
+    Allocated = 1, 	    //Metadata structure is currently in an allocated state.
+    Unallocated = 2, 	//Metadata structure is currently in an unallocated state.
+    Used = 4, 	        //Metadata structure has been allocated at least once.
+    Unused = 8, 	    //Metadata structure has never been allocated.
+    Compressed = 16,    //The file contents are compressed.
+    Orphan = 32, 	    //Return only metadata structures that have no file name pointing to the (inode_walk flag only)
+    None
+}
+
+impl Display for TskFsMetaFlag{
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtReasult {
+        write!(f, "{:?}", self)
+    }
+}
+
+#[derive(Debug)]
+pub enum TskFsMetaType {
+    None,
+    Regular, 	        // Regular file.
+    Directory, 	        // Directory file.
+    NamedPipe, 	        // Named pipe (fifo)
+    CharacterDevice, 	// Character device.
+    BlockDevice, 	    // Block device.
+    SymbolicLink, 	    // Symbolic link.
+    SHAD, 	            // SOLARIS ONLY.
+    UnixSocket, 	    // UNIX domain socket.
+    Without, 	        // Whiteout.
+    VirtualFile, 	    // "Virtual File" created by TSK for file system areas
+    VirtualDirectory 	// "Virtual Directory" created by TSK to hold data like orphan files
+}
+
+impl Display for TskFsMetaType{
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtReasult {
+        write!(f, "{:?}", self)
+    }
+}
+
+impl From<u32> for TskFsMetaType {
+    fn from(type_num: u32) -> Self {
+        match type_num {
+            1 => TskFsMetaType::Regular,
+            2 => TskFsMetaType::Directory,
+            3 => TskFsMetaType::NamedPipe,
+            4 => TskFsMetaType::CharacterDevice,
+            5 => TskFsMetaType::BlockDevice,
+            6 => TskFsMetaType::SymbolicLink,
+            7 => TskFsMetaType::SHAD,
+            8 => TskFsMetaType::UnixSocket,
+            9 => TskFsMetaType::Without,
+            10 => TskFsMetaType::VirtualFile,
+            11 => TskFsMetaType::VirtualDirectory,
+            _ => TskFsMetaType::None
+        }
+    }
+}
 
 /// Wrapper for TSK_FS_META
 pub struct TskFsMeta(*const tsk::TSK_FS_META);
@@ -45,6 +104,37 @@ impl TskFsMeta {
         unsafe { (*self.0).atime }
     }
 
+    /// Get the inode
+    pub fn addr(&self) -> u64 {
+        unsafe { (*self.0).addr }
+    }
+
+    /// Get type
+    pub fn type_(&self) -> TskFsMetaType {
+        TskFsMetaType::from(unsafe { (*self.0).type_ as u32 })
+    }
+
+    /// Get flags
+    pub fn flags(&self) -> Vec<TskFsMetaFlag> {
+        let mut flags = vec![];
+        match unsafe { (*self.0).type_ as u32 } {
+            f if f & TskFsMetaFlag::Allocated as u32 > 0 => flags.push(TskFsMetaFlag::Allocated),
+            f if f & TskFsMetaFlag::Unallocated as u32 > 0 => flags.push(TskFsMetaFlag::Unallocated),
+            f if f & TskFsMetaFlag::Used as u32 > 0 => flags.push(TskFsMetaFlag::Used),
+            f if f & TskFsMetaFlag::Unused as u32 > 0 => flags.push(TskFsMetaFlag::Unused),
+            f if f & TskFsMetaFlag::Orphan as u32 > 0 => flags.push(TskFsMetaFlag::Orphan),
+            _ => flags.push(TskFsMetaFlag::None)
+        }
+        flags
+    }
+
+    pub fn is_unallocated(&self) -> bool {
+        self.flags().iter().any(|f| match f {
+            TskFsMetaFlag::Unallocated => true,
+            _ => false
+        })
+    }
+
 }
 
 impl std::fmt::Debug for TskFsMeta {
@@ -54,6 +144,9 @@ impl std::fmt::Debug for TskFsMeta {
             .field("crtime", &self.crtime())
             .field("mtime", &self.mtime())
             .field("atime", &self.atime())
+            .field("addr", &self.addr())
+            .field("type", &self.type_())
+            .field("flags", &self.flags())
             .finish()
     }
 }

@@ -2,8 +2,11 @@ extern crate tsk;
 use std::io::{Read, Seek, SeekFrom};
 use tsk::tsk_img::TskImg;
 use tsk::tsk_fs_dir::TskFsDir;
-use std::fs;
-use std::path::PathBuf;
+use tsk::tsk_fs_file_handler::{TskFsFileReadFlag};
+use tsk::tsk_fs_attr::TskFsAttrType;
+use tsk::tsk_fs_meta::TskFsMetaFlag;
+use std::io::{self};
+
 
 #[cfg(target_os = "windows")]
 #[test]
@@ -99,8 +102,9 @@ fn test_tsk_wrappers() {
     let root_fh = tsk_fs.file_open_meta(5)
         .expect("Could not open root folder");
     println!("{:?}", root_fh);
-    assert_eq!(true, root_fh.is_dir());
-    assert_eq!(5, root_fh.get_addr());
+    let root_fh_meta = root_fh.get_meta().unwrap();
+    assert_eq!(true, root_fh_meta.is_unallocated());
+    assert_eq!(5, root_fh_meta.addr());
 
     let mut tsk_attr = root_fh.get_attr_at_index(0)
         .expect("Unable to get attribute at index 0 for root node.");
@@ -173,6 +177,43 @@ fn test_tsk_attr_read_seek() {
 
 #[cfg(target_os = "windows")]
 #[test]
+fn test_tsk_file_handler_read_seek() {
+    let source = r"\\.\C:";
+    let tsk_img = TskImg::from_source(source)
+        .expect("Could not create TskImg");
+    println!("{:?}", tsk_img);
+
+    let tsk_fs = tsk_img.get_fs_from_offset(0)
+        .expect("Could not open TskFs at offset 0");
+    println!("{:?}", tsk_fs);
+    
+    let test_file_path = &format!(
+        "{}/{}",
+         env!("CARGO_MANIFEST_DIR").replace("\\","/").replace("C:",""),
+         "samples/test_file"
+    );
+    println!("Opening '{}'...",test_file_path);
+    let test_file = tsk_fs.file_open(test_file_path)
+        .expect(&format!("Could not open '{}'", test_file_path));
+    println!("{:?}", test_file);
+
+    // Create a TskFsFileHandler from TskFsFile
+    let mut test_file_handler = test_file.get_file_handler()
+        .expect("Unable to get default attribute.");
+    
+    let mut buf = [0;1];
+    // Read first byte
+    test_file_handler.read(&mut buf).unwrap();
+    println!("{:?}", buf);
+    // Seek to the last byte
+    test_file_handler.seek(SeekFrom::End(-1)).unwrap();
+    // Read last byte
+    test_file_handler.read(&mut buf).unwrap();
+    println!("{:?}", buf);
+}
+
+#[cfg(target_os = "windows")]
+#[test]
 fn test_tsk_fs_meta(){
     let source = r"\\.\C:";
     let tsk_img = TskImg::from_source(source)
@@ -181,68 +222,18 @@ fn test_tsk_fs_meta(){
     let tsk_fs = tsk_img.get_fs_from_offset(0)
         .expect("Could not open TskFs at offset 0");
 
-
     // Build the full path to the 'test_file'
-    let full_path = fs::canonicalize(PathBuf::from("samples/test_file")).unwrap();
-    let abs_path = &full_path.as_path().to_str().unwrap().replace("\\\\?\\C:","").replace("\\","/");
-    println!("Opening '{}' ...",&abs_path);
-    let root_fh = tsk_fs.file_open(abs_path)
-        .expect("Could not open root folder");
+    let test_file_path = &format!(
+        "{}/{}",
+         env!("CARGO_MANIFEST_DIR").replace("\\","/").replace("C:",""),
+         "samples/test_file"
+    );
+    println!("Opening '{}'...",test_file_path);
+    let root_fh = tsk_fs.file_open(test_file_path)
+        .expect("Could not open test_file");
     
     println!("Reading file metadata...");
     println!("{:?}",root_fh.get_meta());
-    
-    drop(root_fh);
-}
-
-#[cfg(target_os = "windows")]
-#[test]
-fn read_bytes(){
-    let source = r"\\.\C:";
-    let tsk_img = TskImg::from_source(source)
-        .expect("Could not create TskImg");
-
-    let tsk_fs = tsk_img.get_fs_from_offset(0)
-        .expect("Could not open TskFs at offset 0");
-
-    // Build the full path to the 'test_file'
-    let full_path = fs::canonicalize(PathBuf::from("samples/test_file")).unwrap();
-    let abs_path = &full_path.as_path().to_str().unwrap().replace("\\\\?\\C:","").replace("\\","/");
-    println!("Opening '{}' ...",&abs_path);
-    let root_fh = tsk_fs.file_open(abs_path)
-        .expect("Could not open root folder");
-    
-    println!("Reading bytes...");
-    let mut buf = [0;256];
-    let a = root_fh.read_exact(0,&mut buf);
-    println!("{:?}",root_fh.get_addr());
-    println!("Read {:?} bytes successfully!",a.unwrap());
-    println!("Read the bytes : '{:?}'",buf);
-    
-    drop(root_fh);
-}
-
-#[cfg(target_os = "windows")]
-#[test]
-fn copy_test_file(){
-    let source = r"\\.\C:";
-    let tsk_img = TskImg::from_source(source)
-        .expect("Could not create TskImg");
-
-    let tsk_fs = tsk_img.get_fs_from_offset(0)
-        .expect("Could not open TskFs at offset 0");
-
-    // Build the full path to the 'test_file'
-    let full_path = fs::canonicalize(PathBuf::from("samples/test_file")).unwrap();
-    let abs_path = &full_path.as_path().to_str().unwrap().replace("\\\\?\\C:","").replace("\\","/");
-    println!("Opening '{}' ...",&abs_path);
-    let root_fh = tsk_fs.file_open(abs_path)
-        .expect("Could not open root folder");
-    
-    println!("Copying file to samples/test_file_copied_using_libtsk_rs...");
-    root_fh.read_to("samples/test_file_copied_using_libtsk_rs").unwrap();
-
-    // TODO: Add file hash check.
     
     drop(root_fh);
 }
