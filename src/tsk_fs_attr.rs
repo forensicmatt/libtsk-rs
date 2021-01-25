@@ -1,76 +1,11 @@
 use std::io::{Read, Seek, SeekFrom};
-use std::convert::{TryInto, From};
+use std::convert::{TryInto};
 use std::ffi::CStr;
 use crate::{
     errors::TskError,
     tsk_fs_file::TskFsFile,
     bindings as tsk
 };
-use std::fmt::{Display, Formatter, Result as FmtReasult};
-
-#[derive(Copy, Clone, Debug)]
-pub enum TskFsAttrType {
-    DEFAULT = 0x01,
-    HFS_COMP_REC = 0x1103,
-    HFS_DATA = 0x1100,
-    HFS_EXT_ATTR = 0x1102,
-    HFS_RSRC = 0x1101,
-    NOT_FOUND = 0x00,
-    NTFS_ATTRLIST = 0x20,
-    NTFS_BITMAP = 0xB0,
-    NTFS_DATA = 0x80,
-    NTFS_EA = 0xE0,
-    NTFS_EAINFO = 0xD0,
-    NTFS_FNAME = 0x30,
-    NTFS_IDXALLOC = 0xA0,
-    NTFS_IDXROOT = 0x90,
-    NTFS_LOG = 0x100,
-    NTFS_OBJID_OR_VVER = 0x40,
-    NTFS_PROP = 0xF0,
-    NTFS_REPARSE_OR_SYMLNK = 0xC0,
-    NTFS_SEC = 0x50,
-    NTFS_SI = 0x10,
-    NTFS_VINFO = 0x70,
-    NTFS_VNAME = 0x60,
-    UNIX_INDIR = 0x1001
-}
-
-impl From<i32> for TskFsAttrType {
-    fn from(type_: i32) -> Self {
-        match type_ {
-            0x01 => TskFsAttrType::DEFAULT,
-            0x1103 => TskFsAttrType::HFS_COMP_REC,
-            0x1100 => TskFsAttrType::HFS_DATA,
-            0x1102 => TskFsAttrType::HFS_EXT_ATTR,
-            0x1101 => TskFsAttrType::HFS_RSRC,
-            0x00 => TskFsAttrType::NOT_FOUND,
-            0x20 => TskFsAttrType::NTFS_ATTRLIST,
-            0xB0 => TskFsAttrType::NTFS_BITMAP,
-            0x80 => TskFsAttrType::NTFS_DATA,
-            0xE0 => TskFsAttrType::NTFS_EA,
-            0xD0 => TskFsAttrType::NTFS_EAINFO,
-            0x30 => TskFsAttrType::NTFS_FNAME,
-            0xA0 => TskFsAttrType::NTFS_IDXALLOC,
-            0x90 => TskFsAttrType::NTFS_IDXROOT,
-            0x100 => TskFsAttrType::NTFS_LOG,
-            0x40 => TskFsAttrType::NTFS_OBJID_OR_VVER,
-            0xF0 => TskFsAttrType::NTFS_PROP,
-            0xC0 => TskFsAttrType::NTFS_REPARSE_OR_SYMLNK,
-            0x50 => TskFsAttrType::NTFS_SEC,
-            0x10 => TskFsAttrType::NTFS_SI,
-            0x70 => TskFsAttrType::NTFS_VINFO,
-            0x60 => TskFsAttrType::NTFS_VNAME,
-            0x1001 => TskFsAttrType::UNIX_INDIR,
-            _ => TskFsAttrType::NOT_FOUND
-        }
-    }
-}
-
-impl Display for TskFsAttrType{
-    fn fmt(&self, f: &mut Formatter<'_>) -> FmtReasult {
-        write!(f, "{:?}", self)
-    }
-}
 
 /// Wrapper for TSK_FS_ATTR. This maintains a lifetime reference of TskFsFile so
 /// that we are guaranteed that the pointers are always valid. Otherwise, we
@@ -167,26 +102,31 @@ impl<'fs, 'f> TskFsAttr<'fs, 'f> {
 
     /// Get the size of this attribute
     pub fn size(&self) -> i64 {
-        return unsafe { (*self.tsk_fs_attr).size }
+        unsafe { (*self.tsk_fs_attr).size }
     }
 
-    /// Get a str representation of the type
-    pub fn type_name(&self) -> TskFsAttrType {
-        TskFsAttrType::from(unsafe { (*self.tsk_fs_attr).type_ })
+    /// Get the type of the attribute
+    pub fn attr_type(&self) -> tsk::TSK_FS_ATTR_TYPE_ENUM {
+        unsafe { (*self.tsk_fs_attr).type_ }
     }
     /// Get an iterator based off this TskFsAttr struct
     pub fn into_iter(self) -> TskFsAttrIterator<'fs, 'f> {
         TskFsAttrIterator(self)
     }
+
+    /// Get the id of this attribute
+    pub fn id(&self) -> u16 {
+        unsafe { (*self.tsk_fs_attr).id as u16 }
+    }
+    
 }
 impl<'fs, 'f> std::fmt::Debug for TskFsAttr<'fs, 'f> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("TskFsAttr")
-         .field("id", &(unsafe{*self.tsk_fs_attr}.id))
+         .field("id", &self.id())
          .field("name", &self.name())
-         .field("type", &(unsafe{*self.tsk_fs_attr}.type_))
-         .field("type_name", &self.type_name())
-         .field("size", &(unsafe{*self.tsk_fs_attr}.size))
+         .field("type", &self.attr_type())
+         .field("size", &self.size())
          .finish()
     }
 }
@@ -206,7 +146,7 @@ impl<'fs, 'f> Read for TskFsAttr<'fs, 'f> {
             self._offset,
             buf.as_mut_ptr() as _,
             read_size,
-            tsk::TSK_FS_FILE_READ_FLAG_ENUM_TSK_FS_FILE_READ_FLAG_NONE
+            tsk::TSK_FS_FILE_READ_FLAG_ENUM::TSK_FS_FILE_READ_FLAG_NONE
         )};
 
         if bytes_read == -1 {

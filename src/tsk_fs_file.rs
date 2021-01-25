@@ -1,14 +1,11 @@
-use std::io::{Read, Seek, SeekFrom};
-use std::convert::{TryInto, From};
 use std::ptr::{null_mut};
 use std::ffi::{CStr, CString};
-use std::fmt::{Display, Formatter, Result as FmtReasult};
 use crate::{
     errors::TskError,
     tsk_fs::TskFs,
     tsk_fs_meta::TskFsMeta,
     tsk_fs_attr::{TskFsAttr, TskFsAttrIterator},
-    tsk_fs_file_handler::TskFsFileHandler,
+    tsk_fs_file_handler::TskFsFileHandle,
     bindings as tsk
 };
 
@@ -121,26 +118,16 @@ impl<'fs> TskFsFile<'fs> {
         Ok(tsk_fs_attr.into_iter())
     }
 
-    /// Is unallocated
-    pub fn is_unallocated(&self) -> bool {
-        let meta = unsafe { (*self.tsk_fs_file_ptr).meta };
-        unsafe{*meta}.flags & tsk::TSK_FS_META_FLAG_ENUM_TSK_FS_META_FLAG_UNALLOC > 0
-    }
-
     /// Get the TskFsMeta for this TskFsFile
     pub fn get_meta(&self) -> Result<TskFsMeta, TskError> {
         TskFsMeta::from_ptr(unsafe{(*self.tsk_fs_file_ptr).meta})
     }
 
-    /// Get the TskFsFileHandler for this TskFsFile
-    pub fn get_file_handler(&'fs self) -> Result<TskFsFileHandler, TskError> {
-        TskFsFileHandler::new(self)
+    /// Get the TskFsFileHandle for this TskFsFile
+    pub fn get_file_handler(&'fs self, tsk_fs_attr: TskFsAttr<'fs, 'fs>, read_flag: tsk::TSK_FS_FILE_READ_FLAG_ENUM) -> Result<TskFsFileHandle, TskError> {
+        TskFsFileHandle::new(self, tsk_fs_attr, read_flag)
     }
 
-    /// Get the TskFsFileHandler from this TskFsFile and the attr id
-    pub fn get_file_handler_with_id(&'fs self, id: u16) -> Result<TskFsFileHandler, TskError> {
-        TskFsFileHandler::new_with_id(self, id)
-    }
 }
 impl<'fs> Into<*mut tsk::TSK_FS_FILE> for &TskFsFile<'fs> {
     fn into(self) -> *mut tsk::TSK_FS_FILE {

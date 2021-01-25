@@ -47,6 +47,14 @@ fn main() {
         
 
         .whitelist_type("TSK_FS_TYPE_ENUM")
+        .whitelist_type("TSK_FS_META_FLAG_ENUM")
+        .whitelist_type("TSK_FS_ATTR_TYPE_ENUM")
+        .whitelist_type("TSK_FS_FILE_READ_FLAG_ENUM")
+        .whitelist_type("TSK_FS_META_TYPE_ENUM")
+        .rustified_enum("TSK_FS_ATTR_TYPE_ENUM")
+        .rustified_enum("TSK_FS_META_FLAG_ENUM")
+        .rustified_enum("TSK_FS_FILE_READ_FLAG_ENUM")
+        .rustified_enum("TSK_FS_META_TYPE_ENUM")
         .generate()
         .expect("Unable to generate bindings");
 
