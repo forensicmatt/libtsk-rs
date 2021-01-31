@@ -1,5 +1,5 @@
 extern crate tsk;
-use std::path::{Component, PathBuf};
+use std::path::PathBuf;
 use std::io::{Read, Write, Seek, SeekFrom};
 use tsk::tsk_img::TskImg;
 use tsk::tsk_fs_dir::TskFsDir;
@@ -226,8 +226,8 @@ fn test_tsk_file_handle_read_seek() {
     let attr = TskFsAttr::from_default(&test_file).unwrap();
     println!("{:?}", attr);
 
-    // Create a TskFsFileHandler from TskFsFile
-    let mut test_file_handler = test_file.get_file_handle(
+    // Create a TskFsFileHandle from TskFsFile
+    let mut test_file_handle = test_file.get_file_handle(
         attr, 
         bindings::TSK_FS_FILE_READ_FLAG_ENUM::TSK_FS_FILE_READ_FLAG_NONE
     ).expect("Unable to get default attribute.");
@@ -235,15 +235,15 @@ fn test_tsk_file_handle_read_seek() {
     let mut buf = [0; 1];
 
     // Read first byte
-    test_file_handler.read(&mut buf).unwrap();
+    test_file_handle.read(&mut buf).unwrap();
     assert_eq!(&buf, b"\x00");
     println!("{:?}", buf);
 
     // Seek to the last byte
-    test_file_handler.seek(SeekFrom::End(-1)).unwrap();
+    test_file_handle.seek(SeekFrom::End(-1)).unwrap();
 
     // Read last byte
-    test_file_handler.read(&mut buf).unwrap();
+    test_file_handle.read(&mut buf).unwrap();
     assert_eq!(&buf, b"\xff");
     println!("{:?}", buf);
 }
