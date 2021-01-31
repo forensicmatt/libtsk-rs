@@ -1,10 +1,38 @@
 extern crate tsk;
+use std::path::{Component, PathBuf};
 use std::io::{Read, Write, Seek, SeekFrom};
 use tsk::tsk_img::TskImg;
 use tsk::tsk_fs_dir::TskFsDir;
 use tsk::tsk_fs_attr::TskFsAttr;
 use tsk::bindings;
 use std::fs::File;
+
+
+#[cfg(target_os = "windows")]
+fn get_windows_sample_file_parts() -> (String, String) {
+    // Build path to test file
+    let test_file_path: PathBuf = [
+        env!("CARGO_MANIFEST_DIR"),
+        "samples",
+        "test_file"
+    ].iter().collect();
+
+    // Get the root volume for correct TSK volume
+    let root = test_file_path.components().nth(0).unwrap();
+    let root_str = root.as_os_str().to_string_lossy();
+    let volume_str = format!(r"\\.\{}", root_str);
+    println!("volume_str => {}", volume_str);
+
+    // Generate the TSK path to fetch
+    let tsk_file_path_str = test_file_path
+        .strip_prefix(root_str.to_string())
+        .unwrap()
+        .to_string_lossy()
+        .replace("\\", "/");
+    println!("tsk_file_path_str => {}", tsk_file_path_str);
+
+    (volume_str, tsk_file_path_str)
+}
 
 #[cfg(target_os = "windows")]
 #[test]
@@ -177,107 +205,102 @@ fn test_tsk_attr_read_seek() {
 
 #[cfg(target_os = "windows")]
 #[test]
-fn test_tsk_file_handler_read_seek() {
-    let source = r"\\.\C:";
-    let tsk_img = TskImg::from_source(source)
+fn test_tsk_file_handle_read_seek() {
+    // Generate the TSK path to fetch
+    let (volume_str, tsk_file_path_str) = get_windows_sample_file_parts();
+
+    let tsk_img = TskImg::from_source(&volume_str)
         .expect("Could not create TskImg");
     println!("{:?}", tsk_img);
 
     let tsk_fs = tsk_img.get_fs_from_offset(0)
         .expect("Could not open TskFs at offset 0");
     println!("{:?}", tsk_fs);
-    
-    let test_file_path = &format!(
-        "{}/{}",
-         env!("CARGO_MANIFEST_DIR").replace("\\","/").replace("C:",""),
-         "samples/test_file"
-    );
-    println!("Opening '{}'...",test_file_path);
-    let test_file = tsk_fs.file_open(test_file_path)
-        .expect(&format!("Could not open '{}'", test_file_path));
+
+    println!("Opening '{}'...", tsk_file_path_str);
+    let test_file = tsk_fs.file_open(&tsk_file_path_str)
+        .expect(&format!("Could not open '{}'", tsk_file_path_str));
     println!("{:?}", test_file);
 
     // Get the default attribute
     let attr = TskFsAttr::from_default(&test_file).unwrap();
     println!("{:?}", attr);
+
     // Create a TskFsFileHandler from TskFsFile
-    let mut test_file_handler = test_file.get_file_handler(attr, bindings::TSK_FS_FILE_READ_FLAG_ENUM::TSK_FS_FILE_READ_FLAG_NONE)
-        .expect("Unable to get default attribute.");
-    let mut buf = [0;1];
+    let mut test_file_handler = test_file.get_file_handle(
+        attr, 
+        bindings::TSK_FS_FILE_READ_FLAG_ENUM::TSK_FS_FILE_READ_FLAG_NONE
+    ).expect("Unable to get default attribute.");
+
+    let mut buf = [0; 1];
+
     // Read first byte
     test_file_handler.read(&mut buf).unwrap();
+    assert_eq!(&buf, b"\x00");
     println!("{:?}", buf);
+
     // Seek to the last byte
     test_file_handler.seek(SeekFrom::End(-1)).unwrap();
+
     // Read last byte
     test_file_handler.read(&mut buf).unwrap();
+    assert_eq!(&buf, b"\xff");
     println!("{:?}", buf);
 }
 
 #[cfg(target_os = "windows")]
 #[test]
 fn test_tsk_fs_meta(){
-    let source = r"\\.\C:";
-    let tsk_img = TskImg::from_source(source)
+    let (volume_str, tsk_file_path_str) = get_windows_sample_file_parts();
+
+    let tsk_img = TskImg::from_source(&volume_str)
         .expect("Could not create TskImg");
 
     let tsk_fs = tsk_img.get_fs_from_offset(0)
         .expect("Could not open TskFs at offset 0");
 
-    // Build the full path to the 'test_file'
-    let test_file_path = &format!(
-        "{}/{}",
-         env!("CARGO_MANIFEST_DIR").replace("\\","/").replace("C:",""),
-         "samples/test_file"
-    );
-    println!("Opening '{}'...",test_file_path);
-    let root_fh = tsk_fs.file_open(test_file_path)
+    println!("Opening '{}'...", tsk_file_path_str);
+    let root_fh = tsk_fs.file_open(&tsk_file_path_str)
         .expect("Could not open test_file");
     
     println!("Reading file metadata...");
     println!("{:?}",root_fh.get_meta());
-    
-    drop(root_fh);
 }
 
 #[cfg(target_os = "windows")]
 #[test]
 fn test_copy_file(){
-    let source = r"\\.\C:";
-    let tsk_img = TskImg::from_source(source)
+    let (volume_str, tsk_file_path_str) = get_windows_sample_file_parts();
+
+    let tsk_img = TskImg::from_source(&volume_str)
         .expect("Could not create TskImg");
 
     let tsk_fs = tsk_img.get_fs_from_offset(0)
         .expect("Could not open TskFs at offset 0");
 
-    // Build the full path to the 'test_file'
-    let test_file_path = &format!(
-        "{}/{}",
-         env!("CARGO_MANIFEST_DIR").replace("\\","/").replace("C:",""),
-         "samples/test_file"
-    );
-    println!("Opening '{}'...",test_file_path);
-    let test_file = tsk_fs.file_open(test_file_path)
+    println!("Opening '{}'...", tsk_file_path_str);
+    let test_file = tsk_fs.file_open(&tsk_file_path_str)
         .expect("Could not open test_file");
-    
     
     // Get the default attribute
     let attr = TskFsAttr::from_default(&test_file).unwrap();
     println!("{:?}", attr);
-    // Create a TskFsFileHandler from TskFsFile
-    let mut test_file_handler = test_file.get_file_handler(attr, bindings::TSK_FS_FILE_READ_FLAG_ENUM::TSK_FS_FILE_READ_FLAG_NONE)
-        .expect("Unable to get default attribute.");
+
+    // Create a TskFsFileHandle from TskFsFile
+    let mut test_file_handle = test_file.get_file_handle(
+        attr, 
+        bindings::TSK_FS_FILE_READ_FLAG_ENUM::TSK_FS_FILE_READ_FLAG_NONE
+    ).expect("Unable to get default attribute.");
+
     // Specify a buffer of 10 bytes
     let mut buf = [0;10];
-    let outfile_path = format!("{}{}", test_file_path, "_copied_using_libtsk_rs");
+    let outfile_path = format!("{}{}", tsk_file_path_str, "_copied_using_libtsk_rs");
     println!("Writing to '{}'...", outfile_path);
     let mut outfile = File::create(outfile_path).unwrap();
     loop {
-        let bytes_read = test_file_handler.read(&mut buf).unwrap();
+        let bytes_read = test_file_handle.read(&mut buf).unwrap();
         if bytes_read == 0 {break;}
         let bw = outfile.write(&buf[..bytes_read]).unwrap();
         println!("Wrote '{}' bytes", bw);
-
     }
-    drop(test_file);
 }

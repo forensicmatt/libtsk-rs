@@ -5,7 +5,7 @@ use crate::{
     tsk_fs::TskFs,
     tsk_fs_meta::TskFsMeta,
     tsk_fs_attr::{TskFsAttr, TskFsAttrIterator},
-    tsk_fs_file_handler::TskFsFileHandle,
+    tsk_fs_file_handle::TskFsFileHandle,
     bindings as tsk
 };
 
@@ -113,7 +113,7 @@ impl<'fs> TskFsFile<'fs> {
     }
 
     /// Get a TskFsAttrIterator for this TskFsFile
-    pub fn get_attr_iter<'f>(&'fs self) -> Result<TskFsAttrIterator<'fs, 'f>, TskError> {
+    pub fn get_attr_iter<'f>(&'fs self) -> Result<TskFsAttrIterator<'f, 'fs>, TskError> {
         let tsk_fs_attr = TskFsAttr::from_index(self, 0)?;
         Ok(tsk_fs_attr.into_iter())
     }
@@ -124,7 +124,11 @@ impl<'fs> TskFsFile<'fs> {
     }
 
     /// Get the TskFsFileHandle for this TskFsFile
-    pub fn get_file_handler(&'fs self, tsk_fs_attr: TskFsAttr<'fs, 'fs>, read_flag: tsk::TSK_FS_FILE_READ_FLAG_ENUM) -> Result<TskFsFileHandle, TskError> {
+    pub fn get_file_handle(
+        &'fs self, 
+        tsk_fs_attr: TskFsAttr<'fs, 'fs>, 
+        read_flag: tsk::TSK_FS_FILE_READ_FLAG_ENUM
+    ) -> Result<TskFsFileHandle, TskError> {
         TskFsFileHandle::new(self, tsk_fs_attr, read_flag)
     }
 

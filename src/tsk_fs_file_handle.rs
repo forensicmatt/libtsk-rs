@@ -9,27 +9,40 @@ use super::{
     bindings as tsk
 };
 
-/// TskFsFileHandle struct is used to read file data.
-pub struct TskFsFileHandle<'fs>{
-    tsk_fs_file: &'fs TskFsFile<'fs>,
-    tsk_fs_attr: TskFsAttr<'fs, 'fs>,
+
+/// TskFsFileHandle struct is another entry point to read file data.
+/// 'f -> TskFsFileHandle can never last longer than the file
+/// 'fs -> TskFsFileHandle can never last longer than the file system
+/// 
+pub struct TskFsFileHandle<'f, 'fs>{
+    /// The TskFsFile that is being used
+    tsk_fs_file: &'f TskFsFile<'fs>,
+    /// The TskFsAttr that contains the information
+    /// for write operations
+    tsk_fs_attr: TskFsAttr<'fs, 'f>,
+    /// The read pointer
     _offset: i64,
+    /// The read flags
     read_flag: tsk::TSK_FS_FILE_READ_FLAG_ENUM
 }
 
-impl<'fs> TskFsFileHandle<'fs> {
+impl<'f, 'fs> TskFsFileHandle<'f, 'fs> {
     /// Create TskFsFileHandle from TskFsFile, TskFsAttr and read flag.
-    pub fn new(tsk_fs_file: &'fs TskFsFile<'fs>, tsk_fs_attr: TskFsAttr<'fs, 'fs>, read_flag: tsk::TSK_FS_FILE_READ_FLAG_ENUM) -> Result<Self,TskError> {
+    pub fn new(
+        tsk_fs_file: &'f TskFsFile<'fs>,
+        tsk_fs_attr: TskFsAttr<'fs, 'f>,
+        read_flag: tsk::TSK_FS_FILE_READ_FLAG_ENUM
+    ) -> Result<Self,TskError> {
         Ok( Self {
             tsk_fs_file,
-            _offset: 0,
             tsk_fs_attr,
+            _offset: 0,
             read_flag
         })
     }
 }
 
-impl<'fs> Read for TskFsFileHandle<'fs> {
+impl<'f, 'fs> Read for TskFsFileHandle<'f, 'fs> {
     fn read(&mut self, buf: &mut [u8]) ->  std::io::Result<usize> {
         if self._offset == self.tsk_fs_attr.size() {
             return Ok(0);
@@ -65,7 +78,7 @@ impl<'fs> Read for TskFsFileHandle<'fs> {
     }
 }
 
-impl<'fs> Seek for TskFsFileHandle<'fs> {
+impl<'f, 'fs> Seek for TskFsFileHandle<'f, 'fs> {
     fn seek(&mut self, pos: SeekFrom) -> std::io::Result<u64>{
         match pos {
             SeekFrom::Start(o) => {

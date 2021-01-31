@@ -68,4 +68,5 @@ fn main() {
         }
         file_count += 1;
     }
+    eprintln!("file_count: {}", file_count);
 }

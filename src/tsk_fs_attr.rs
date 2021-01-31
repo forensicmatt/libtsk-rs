@@ -13,12 +13,12 @@ use crate::{
 /// 
 /// `fs => Filesystem lifetime
 /// 'f => File lifetime
-pub struct TskFsAttr<'fs, 'f>{
+pub struct TskFsAttr<'f, 'fs>{
     tsk_fs_file: &'f TskFsFile<'fs>,
     pub tsk_fs_attr: *const tsk::TSK_FS_ATTR,
     _offset: i64
 }
-impl<'fs, 'f> TskFsAttr<'fs, 'f> {
+impl<'f, 'fs> TskFsAttr<'f, 'fs> {
     /// Create a TSK_FS_ATTR wrapper given the TskFsFile and index of the attribute
     pub fn from_index(
         tsk_fs_file: &'f TskFsFile<'fs>, 
