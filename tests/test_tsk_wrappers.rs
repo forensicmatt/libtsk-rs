@@ -1,8 +1,10 @@
 extern crate tsk;
-use std::io::{Read, Seek, SeekFrom};
+use std::io::{Read, Write, Seek, SeekFrom};
 use tsk::tsk_img::TskImg;
 use tsk::tsk_fs_dir::TskFsDir;
-
+use tsk::tsk_fs_attr::TskFsAttr;
+use tsk::bindings;
+use std::fs::File;
 
 #[cfg(target_os = "windows")]
 #[test]
@@ -98,8 +100,9 @@ fn test_tsk_wrappers() {
     let root_fh = tsk_fs.file_open_meta(5)
         .expect("Could not open root folder");
     println!("{:?}", root_fh);
-    assert_eq!(true, root_fh.is_dir());
-    assert_eq!(5, root_fh.get_addr());
+    let root_fh_meta = root_fh.get_meta().unwrap();
+    assert_eq!(false, root_fh_meta.is_unallocated());
+    assert_eq!(5, root_fh_meta.addr());
 
     let mut tsk_attr = root_fh.get_attr_at_index(0)
         .expect("Unable to get attribute at index 0 for root node.");
@@ -117,7 +120,8 @@ fn test_tsk_wrappers() {
     let mft_fh = tsk_fs.file_open_meta(0)
         .expect("Could not open $MFT");
     println!("{:?}", mft_fh);
-    assert_eq!(false, mft_fh.is_unallocated());
+    let mft_fh_meta = mft_fh.get_meta().unwrap();
+    assert_eq!(false, mft_fh_meta.is_unallocated());
 
     let mut tsk_attr = mft_fh.get_attr()
         .expect("Unable to get default attribute.");
@@ -158,7 +162,8 @@ fn test_tsk_attr_read_seek() {
     let mft_fh = tsk_fs.file_open_meta(0)
         .expect("Could not open $MFT");
     println!("{:?}", mft_fh);
-    assert_eq!(false, mft_fh.is_unallocated());
+    let mft_fh_meta = mft_fh.get_meta().unwrap();
+    assert_eq!(false, mft_fh_meta.is_unallocated());
 
     let mut tsk_attr = mft_fh.get_attr()
         .expect("Unable to get default attribute.");
@@ -168,4 +173,111 @@ fn test_tsk_attr_read_seek() {
     let _bytes_read = tsk_attr.read(&mut buffer)
         .expect("Error reading attribute!");
     println!("MFT record at offset 1024 -> {:02x?}", buffer);
+}
+
+#[cfg(target_os = "windows")]
+#[test]
+fn test_tsk_file_handler_read_seek() {
+    let source = r"\\.\C:";
+    let tsk_img = TskImg::from_source(source)
+        .expect("Could not create TskImg");
+    println!("{:?}", tsk_img);
+
+    let tsk_fs = tsk_img.get_fs_from_offset(0)
+        .expect("Could not open TskFs at offset 0");
+    println!("{:?}", tsk_fs);
+    
+    let test_file_path = &format!(
+        "{}/{}",
+         env!("CARGO_MANIFEST_DIR").replace("\\","/").replace("C:",""),
+         "samples/test_file"
+    );
+    println!("Opening '{}'...",test_file_path);
+    let test_file = tsk_fs.file_open(test_file_path)
+        .expect(&format!("Could not open '{}'", test_file_path));
+    println!("{:?}", test_file);
+
+    // Get the default attribute
+    let attr = TskFsAttr::from_default(&test_file).unwrap();
+    println!("{:?}", attr);
+    // Create a TskFsFileHandler from TskFsFile
+    let mut test_file_handler = test_file.get_file_handler(attr, bindings::TSK_FS_FILE_READ_FLAG_ENUM::TSK_FS_FILE_READ_FLAG_NONE)
+        .expect("Unable to get default attribute.");
+    let mut buf = [0;1];
+    // Read first byte
+    test_file_handler.read(&mut buf).unwrap();
+    println!("{:?}", buf);
+    // Seek to the last byte
+    test_file_handler.seek(SeekFrom::End(-1)).unwrap();
+    // Read last byte
+    test_file_handler.read(&mut buf).unwrap();
+    println!("{:?}", buf);
+}
+
+#[cfg(target_os = "windows")]
+#[test]
+fn test_tsk_fs_meta(){
+    let source = r"\\.\C:";
+    let tsk_img = TskImg::from_source(source)
+        .expect("Could not create TskImg");
+
+    let tsk_fs = tsk_img.get_fs_from_offset(0)
+        .expect("Could not open TskFs at offset 0");
+
+    // Build the full path to the 'test_file'
+    let test_file_path = &format!(
+        "{}/{}",
+         env!("CARGO_MANIFEST_DIR").replace("\\","/").replace("C:",""),
+         "samples/test_file"
+    );
+    println!("Opening '{}'...",test_file_path);
+    let root_fh = tsk_fs.file_open(test_file_path)
+        .expect("Could not open test_file");
+    
+    println!("Reading file metadata...");
+    println!("{:?}",root_fh.get_meta());
+    
+    drop(root_fh);
+}
+
+#[cfg(target_os = "windows")]
+#[test]
+fn test_copy_file(){
+    let source = r"\\.\C:";
+    let tsk_img = TskImg::from_source(source)
+        .expect("Could not create TskImg");
+
+    let tsk_fs = tsk_img.get_fs_from_offset(0)
+        .expect("Could not open TskFs at offset 0");
+
+    // Build the full path to the 'test_file'
+    let test_file_path = &format!(
+        "{}/{}",
+         env!("CARGO_MANIFEST_DIR").replace("\\","/").replace("C:",""),
+         "samples/test_file"
+    );
+    println!("Opening '{}'...",test_file_path);
+    let test_file = tsk_fs.file_open(test_file_path)
+        .expect("Could not open test_file");
+    
+    
+    // Get the default attribute
+    let attr = TskFsAttr::from_default(&test_file).unwrap();
+    println!("{:?}", attr);
+    // Create a TskFsFileHandler from TskFsFile
+    let mut test_file_handler = test_file.get_file_handler(attr, bindings::TSK_FS_FILE_READ_FLAG_ENUM::TSK_FS_FILE_READ_FLAG_NONE)
+        .expect("Unable to get default attribute.");
+    // Specify a buffer of 10 bytes
+    let mut buf = [0;10];
+    let outfile_path = format!("{}{}", test_file_path, "_copied_using_libtsk_rs");
+    println!("Writing to '{}'...", outfile_path);
+    let mut outfile = File::create(outfile_path).unwrap();
+    loop {
+        let bytes_read = test_file_handler.read(&mut buf).unwrap();
+        if bytes_read == 0 {break;}
+        let bw = outfile.write(&buf[..bytes_read]).unwrap();
+        println!("Wrote '{}' bytes", bw);
+
+    }
+    drop(test_file);
 }

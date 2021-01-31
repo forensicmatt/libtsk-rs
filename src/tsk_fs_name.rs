@@ -1,8 +1,6 @@
 use std::ffi::CStr;
 use crate::{
     errors::TskError,
-    tsk_fs::TskFs,
-    tsk_fs_dir::TskFsDir,
     bindings as tsk
 };
 

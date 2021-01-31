@@ -34,6 +34,7 @@ fn main() {
         .whitelist_function("tsk_fs_file_open_meta")
         .whitelist_function("tsk_fs_file_close")
         .whitelist_function("tsk_fs_file_read")
+        .whitelist_function("tsk_fs_file_read_type")
         .whitelist_function("tsk_fs_file_attr_getsize")
         .whitelist_function("tsk_fs_file_attr_get_idx")
         .whitelist_function("tsk_fs_file_attr_get")
@@ -46,6 +47,14 @@ fn main() {
         
 
         .whitelist_type("TSK_FS_TYPE_ENUM")
+        .whitelist_type("TSK_FS_META_FLAG_ENUM")
+        .whitelist_type("TSK_FS_ATTR_TYPE_ENUM")
+        .whitelist_type("TSK_FS_FILE_READ_FLAG_ENUM")
+        .whitelist_type("TSK_FS_META_TYPE_ENUM")
+        .rustified_enum("TSK_FS_ATTR_TYPE_ENUM")
+        .rustified_enum("TSK_FS_META_FLAG_ENUM")
+        .rustified_enum("TSK_FS_FILE_READ_FLAG_ENUM")
+        .rustified_enum("TSK_FS_META_TYPE_ENUM")
         .generate()
         .expect("Unable to generate bindings");
 
@@ -96,7 +105,7 @@ fn windows_compile_tsk() {
 
 #[cfg(target_os = "windows")]
 fn windows_setup() {
-    windows_compile_tsk();
+    // windows_compile_tsk();
     println!(r"cargo:rustc-link-search=sleuthkit\win32\x64\Release_NoLibs");
 
     let hklm = RegKey::predef(HKEY_LOCAL_MACHINE);

@@ -2,3 +2,4 @@
 Cargo.lock
 
 **/*.rs.bk
+samples/test_file_copied_using_libtsk_rs

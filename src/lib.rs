@@ -16,3 +16,9 @@ pub mod tsk_fs_file;
 pub mod tsk_fs_dir;
 /// Wrapper for TSK_FS_NAME
 pub mod tsk_fs_name;
+/// Wrapper for TSK_FS_META
+pub mod tsk_fs_meta;
+/// Reading handler for TskFsFile.
+pub mod tsk_fs_file_handler;
+/// Wrapper for Tsk_FS_ATTR.
+pub mod tsk_fs_attr;
