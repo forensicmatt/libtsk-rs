@@ -2,6 +2,7 @@ extern crate bindgen;
 use std::process::Command;
 use std::env;
 use std::path::PathBuf;
+use std::fs;
 
 #[cfg(target_os = "windows")]
 use winreg::{enums::HKEY_LOCAL_MACHINE, RegKey};
@@ -89,12 +90,21 @@ fn windows_compile_tsk() {
     let msbuild_path = install_path.join(r"MSBuild\Current\Bin\MSBuild.exe");
     eprintln!("msbuild_path -> {:?}\n", msbuild_path);
 
+    // Fix libtsk.vcxproj (can be removed once https://github.com/sleuthkit/sleuthkit/pull/2205 is merged and released upstream)
+    let libtsk_vcxproj_contents = fs::read_to_string(r"sleuthkit\win32\libtsk\libtsk.vcxproj").unwrap();
+    fs::write(r"sleuthkit\win32\libtsk\libtsk.vcxproj",
+              libtsk_vcxproj_contents.replace(r#"<Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">"#,
+                                              r#"<Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild" Condition="!$(Configuration.EndsWith('_NoLibs'))">"#))
+              .unwrap();
+
+
     let output = Command::new(&msbuild_path)
         .args(&[
             r"-target:libtsk",
             r"/p:PlatformToolset=v142",
             r"/p:Platform=x64",
             r"/p:Configuration=Release_NoLibs",
+            r"/p:RestorePackages=false",
             r"sleuthkit\win32\tsk-win.sln"
         ])
         .output()
