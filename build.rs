@@ -105,8 +105,8 @@ fn windows_compile_tsk() {
 
 #[cfg(target_os = "windows")]
 fn windows_setup() {
-    // windows_compile_tsk();
-    println!(r"cargo:rustc-link-search=sleuthkit\win32\x64\Release_NoLibs");
+    windows_compile_tsk();
+    println!(r"cargo:rustc-link-search={}\sleuthkit\win32\x64\Release_NoLibs", env::var("CARGO_MANIFEST_DIR").unwrap());
 
     let hklm = RegKey::predef(HKEY_LOCAL_MACHINE);
     let sdk_key = hklm.open_subkey(r"SOFTWARE\Wow6432Node\Microsoft\Microsoft SDKs\Windows\v10.0")
