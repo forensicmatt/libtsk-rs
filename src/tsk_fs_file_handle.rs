@@ -2,6 +2,7 @@
 
 use std::io::{Read, Seek, SeekFrom};
 use std::ffi::CStr;
+use std::convert::TryInto;
 use super::{
     tsk_fs_file::TskFsFile,
     tsk_fs_attr::TskFsAttr,
@@ -53,7 +54,7 @@ impl<'f, 'fs> Read for TskFsFileHandle<'f, 'fs> {
             self.tsk_fs_attr.id(),
             self._offset,
             buf.as_mut_ptr() as *mut i8,
-            buf.len() as u64,
+            buf.len().try_into().unwrap(),
             self.read_flag
         )};
         match bytes_read {
@@ -71,7 +72,7 @@ impl<'f, 'fs> Read for TskFsFileHandle<'f, 'fs> {
                 ));
             }
             _ => {
-                    self._offset+=bytes_read;
+                    self._offset += bytes_read as i64;
                     return Ok(bytes_read as usize);
                 }
         };
