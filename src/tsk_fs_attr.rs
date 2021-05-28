@@ -7,6 +7,180 @@ use crate::{
     bindings as tsk
 };
 
+
+/// Wrapper for TSK_FS_ATTR_RUN pointer.
+/// 
+pub struct TskFsAttrRun<'dr, 'a, 'f, 'fs> {
+    _nrd: &'dr NonResidentData<'a, 'f, 'fs>,
+    tsk_fs_attr_run: *const tsk::TSK_FS_ATTR_RUN
+}
+impl<'dr, 'a, 'f, 'fs> TskFsAttrRun<'dr, 'a, 'f, 'fs> {
+    /// Create a TskFsAttrRun from a TSK_FS_ATTR_RUN pointer and NonResidentData. The
+    /// NonResidentData must last the life time of this TskFsAttrRun.
+    pub fn from_nrd(
+        _nrd: &'dr NonResidentData<'a, 'f, 'fs>,
+        tsk_fs_attr_run: *const tsk::TSK_FS_ATTR_RUN
+    ) -> Self {
+        Self {
+            _nrd,
+            tsk_fs_attr_run
+        }
+    }
+
+    /// Get the starting block address (in file system) of run
+    /// 
+    pub fn addr(&self) -> u64 {
+        unsafe { (*self.tsk_fs_attr_run).addr }
+    }
+
+    /// Number of blocks in run (0 when entry is not in use) 
+    /// 
+    pub fn len(&self) -> u64 {
+        unsafe { (*self.tsk_fs_attr_run).len }
+    }
+
+    /// Flags for run. 
+    /// 
+    pub fn flags(&self) -> i32 {
+        unsafe { (*self.tsk_fs_attr_run).flags }
+    }
+
+    /// Flags for run. 
+    /// 
+    pub fn flags_str(&self) -> String {
+        let mut string_vec = Vec::with_capacity(4);
+        let flags = self.flags();
+
+        if flags & tsk::TSK_FS_ATTR_RUN_FLAG_ENUM_TSK_FS_ATTR_RUN_FLAG_FILLER > 0 {
+            string_vec.push("FILLER");
+        }
+        if flags & tsk::TSK_FS_ATTR_RUN_FLAG_ENUM_TSK_FS_ATTR_RUN_FLAG_SPARSE > 0 {
+            string_vec.push("SPARSE");
+        }
+        if flags & tsk::TSK_FS_ATTR_RUN_FLAG_ENUM_TSK_FS_ATTR_RUN_FLAG_ENCRYPTED > 0 {
+            string_vec.push("ENCRYPTED");
+        }
+
+        string_vec.join(" | ")
+    }
+}
+impl <'dr, 'a, 'f, 'fs> std::fmt::Debug for TskFsAttrRun<'dr, 'a, 'f, 'fs> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let flags = format!("[0x{:04x}] {}", self.flags(), self.flags_str());
+        f.debug_struct("TskFsAttrRun")
+         .field("addr", &self.addr())
+         .field("flags", &flags)
+         .field("len", &self.len())
+         .finish()
+    }
+}
+
+
+/// An iterator over a TSK_FS_ATTR_RUN pointer which uses the
+/// structs next attribute to iterate.
+pub struct TskFsAttrRunIterator<'dr, 'a, 'f, 'fs>(TskFsAttrRun<'dr, 'a, 'f, 'fs>);
+impl<'dr, 'a, 'f, 'fs> Iterator for TskFsAttrRunIterator<'dr, 'a, 'f, 'fs> {
+    type Item = TskFsAttrRun<'dr, 'a, 'f, 'fs>;
+    
+    fn next(&mut self) -> Option<TskFsAttrRun<'dr, 'a, 'f, 'fs>> {
+        if self.0.tsk_fs_attr_run.is_null() {
+            return None;
+        }
+
+        let next = unsafe {
+            TskFsAttrRun {
+                _nrd: self.0._nrd,
+                tsk_fs_attr_run: (*self.0.tsk_fs_attr_run).next as *const tsk::TSK_FS_ATTR_RUN
+            }
+        };
+
+        let current = TskFsAttrRun {
+            _nrd: self.0._nrd,
+            tsk_fs_attr_run: self.0.tsk_fs_attr_run,
+        };
+
+        self.0 = next;
+        
+        Some(current)
+    }
+}
+
+
+/// Wrapper for Non Resident Data
+/// 
+pub struct NonResidentData<'a, 'f, 'fs> {
+    _tsk_fs_attr: &'a TskFsAttr<'f, 'fs>,
+    nrd: tsk::TSK_FS_ATTR__bindgen_ty_1
+}
+impl <'a, 'f, 'fs> NonResidentData<'a, 'f, 'fs> {
+    /// Create a NonResidentData from a TskFsAttr's lifetime and nrd struct (TSK_FS_ATTR__bindgen_ty_1)
+    /// Thus, NonResidentData must live for the life time of the attribute it represents.
+    /// 
+    pub fn new(
+        _tsk_fs_attr: &'a TskFsAttr<'f, 'fs>,
+        nrd: tsk::TSK_FS_ATTR__bindgen_ty_1
+    ) -> Self {
+        Self {
+            _tsk_fs_attr,
+            nrd
+        }
+    }
+
+    /// Number of initial bytes in run to skip before content begins. The size field does not include this length. 
+    /// 
+    pub fn skiplen(&self) -> u32 {
+        self.nrd.skiplen
+    }
+
+    /// Number of bytes that are allocated in all clusters of non-resident run 
+    /// (will be larger than size - does not include skiplen). This is defined when 
+    /// the attribute is created and used to determine slack space.
+    /// 
+    pub fn allocsize(&self) -> i64 {
+        self.nrd.allocsize
+    }
+
+    /// Number of bytes (starting from offset 0) that have data (including FILLER) 
+    /// saved for them (smaller then or equal to size). This is defined when the attribute is created.
+    /// 
+    pub fn initsize(&self) -> i64 {
+        self.nrd.initsize
+    }
+
+    /// Size of compression units (needed only if NTFS file is compressed)
+    /// 
+    pub fn compsize(&self) -> u32 {
+        self.nrd.compsize
+    }
+
+    /// Get the first data run for this non resident data
+    /// 
+    pub fn run<'dr>(&'dr self) -> TskFsAttrRun<'dr, 'a, 'f, 'fs> {
+        TskFsAttrRun::from_nrd(
+            &self,
+            self.nrd.run
+        )
+    }
+
+    /// Get a TskFsAttrRunIterator based off this NonResidentData struct
+    /// 
+    pub fn iter<'dr>(&'dr self) -> TskFsAttrRunIterator<'dr, 'a, 'f, 'fs> {
+        TskFsAttrRunIterator(self.run())
+    }
+}
+impl <'a, 'f, 'fs> std::fmt::Debug for NonResidentData<'a, 'f, 'fs> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("NonResidentData")
+         .field("skiplen", &self.nrd.skiplen)
+         .field("allocsize", &self.nrd.allocsize)
+         .field("initsize", &self.nrd.initsize)
+         .field("compsize", &self.nrd.compsize)
+         .finish()
+    }
+}
+
+
+
 /// Wrapper for TSK_FS_ATTR. This maintains a lifetime reference of TskFsFile so
 /// that we are guaranteed that the pointers are always valid. Otherwise, we
 /// have no safety guarantee that the pointers are still available. 
@@ -109,6 +283,12 @@ impl<'f, 'fs> TskFsAttr<'f, 'fs> {
     pub fn attr_type(&self) -> tsk::TSK_FS_ATTR_TYPE_ENUM {
         unsafe { (*self.tsk_fs_attr).type_ }
     }
+
+    /// Get the flags of the attribute
+    pub fn attr_flags(&self) -> tsk::TSK_FS_ATTR_FLAG_ENUM {
+        unsafe { (*self.tsk_fs_attr).flags }
+    }
+
     /// Get an iterator based off this TskFsAttr struct
     pub fn into_iter(self) -> TskFsAttrIterator<'fs, 'f> {
         TskFsAttrIterator(self)
@@ -119,6 +299,19 @@ impl<'f, 'fs> TskFsAttr<'f, 'fs> {
         unsafe { (*self.tsk_fs_attr).id as u16 }
     }
     
+    /// Get the non-resident data or None if attribute is resident
+    pub fn get_non_resident_data<'a>(&'a self) -> Option<NonResidentData<'a, 'f, 'fs>> {
+        if (self.attr_flags() & tsk::TSK_FS_ATTR_FLAG_ENUM_TSK_FS_ATTR_NONRES) > 0 {
+            unsafe { Some(
+                NonResidentData::new(
+                    &self,
+                    (*self.tsk_fs_attr).nrd
+                ) 
+            )}
+        } else {
+            None
+        }
+    }
 }
 impl<'fs, 'f> std::fmt::Debug for TskFsAttr<'fs, 'f> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
