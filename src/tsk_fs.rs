@@ -9,8 +9,7 @@ use crate::{
 };
 
 
-/// Wrapper for TSK_FS_INFO 
-#[derive(Debug)]
+/// Wrapper for TSK_FS_INFO
 pub struct TskFs {
     /// The ptr to the TSK_FS_INFO struct
     tsk_fs_ptr: *mut tsk::TSK_FS_INFO,
@@ -61,6 +60,68 @@ impl TskFs {
             path_stack: Vec::new()
         } )
     }
+
+    /// Number of blocks in fs.
+    pub fn block_count(&self) -> u64 {
+        unsafe { (*self.tsk_fs_ptr).block_count }
+    }
+
+    /// Number of bytes that precede each block (currently only used for RAW CDs) 
+    pub fn block_pre_size(&self) -> u32 {
+        unsafe { (*self.tsk_fs_ptr).block_pre_size }
+    }
+
+    /// Number of bytes that follow each block (currently only used for RAW CDs) 
+    pub fn block_post_size(&self) -> u32 {
+        unsafe { (*self.tsk_fs_ptr).block_post_size }
+    }
+
+    /// Size of each block (in bytes) 
+    pub fn block_size(&self) -> u32 {
+        unsafe { (*self.tsk_fs_ptr).block_size }
+    }
+
+    /// Size of device block (typically always 512) 
+    pub fn dev_bsize(&self) -> u32 {
+        unsafe { (*self.tsk_fs_ptr).dev_bsize }
+    }
+
+    /// Address of first block. 
+    pub fn first_block(&self) -> u64 {
+        unsafe { (*self.tsk_fs_ptr).first_block }
+    }
+
+    /// First valid metadata address.  
+    pub fn first_inum(&self) -> u64 {
+        unsafe { (*self.tsk_fs_ptr).first_inum }
+    }
+
+    /// Number of metadata addresses. 
+    pub fn inum_count(&self) -> u64 {
+        unsafe { (*self.tsk_fs_ptr).inum_count }
+    }
+
+    /// Address of journal inode. 
+    pub fn journ_inum(&self) -> u64 {
+        unsafe { (*self.tsk_fs_ptr).journ_inum }
+    }
+
+    /// Address of last block as reported by file system (could be larger than 
+    /// last_block in image if end of image does not exist) 
+    pub fn last_block(&self) -> u64 {
+        unsafe { (*self.tsk_fs_ptr).last_block }
+    }
+
+    /// Address of last block – adjusted so that it is equal to the last block 
+    /// in the image or volume (if image is not complete) 
+    pub fn last_block_act(&self) -> u64 {
+        unsafe { (*self.tsk_fs_ptr).last_block_act }
+    }
+
+    /// Last valid metadata address. 
+    pub fn last_inum(&self) -> u64 {
+        unsafe { (*self.tsk_fs_ptr).last_inum }
+    }
 }
 impl Into<*mut tsk::TSK_FS_INFO> for &TskFs {
     fn into(self) -> *mut tsk::TSK_FS_INFO {
@@ -82,6 +143,23 @@ impl Drop for TskFs {
         if self._release {
             unsafe { tsk::tsk_fs_close(self.tsk_fs_ptr) };
         }
+    }
+}
+impl std::fmt::Debug for TskFs {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("TskFs")
+         .field("block_count", &self.block_count())
+         .field("block_pre_size", &self.block_pre_size())
+         .field("block_post_size", &self.block_post_size())
+         .field("dev_bsize", &self.dev_bsize())
+         .field("first_block", &self.first_block())
+         .field("first_inum", &self.first_inum())
+         .field("inum_count", &self.inum_count())
+         .field("journ_inum", &self.journ_inum())
+         .field("last_block", &self.last_block())
+         .field("last_block_act", &self.last_block_act())
+         .field("last_inum", &self.last_inum())
+         .finish()
     }
 }
 
