@@ -338,7 +338,7 @@ impl<'fs, 'f> Read for TskFsAttr<'fs, 'f> {
             self.tsk_fs_attr,
             self._offset,
             buf.as_mut_ptr() as _,
-            read_size,
+            read_size.try_into().unwrap(),
             tsk::TSK_FS_FILE_READ_FLAG_ENUM::TSK_FS_FILE_READ_FLAG_NONE
         )};
 
@@ -356,7 +356,7 @@ impl<'fs, 'f> Read for TskFsAttr<'fs, 'f> {
             );
         }
         // update offset by the number of bytes read
-        self._offset += bytes_read;
+        self._offset += bytes_read as i64;
 
         Ok(bytes_read as usize)
     }
