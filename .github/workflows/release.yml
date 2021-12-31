@@ -85,7 +85,7 @@ jobs:
     - name: Build archive
       shell: bash
       run: |
-        echo "ASSET=target/release/vanillawinrefs_to_jsonl.exe" >> $GITHUB_ENV
+        echo "ASSET=${{ env.GITHUB_WORKSPACE }}/target/release/vanillawinrefs_to_jsonl.exe" >> $GITHUB_ENV
         echo "ASSET_NAME=vanillawinrefs_to_jsonl-${{ env.RELEASE_VERSION }}.exe" >> $GITHUB_ENV
 
     - name: Upload release archive
