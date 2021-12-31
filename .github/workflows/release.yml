@@ -88,8 +88,10 @@ jobs:
         staging="tools-windows"
         mkdir -p "$staging"
 
-        cp "target/release/*.exe" "$staging/"
-        
+        cp "target/release/list_files.exe" "$staging/"
+        cp "target/release/read_usn.exe" "$staging/"
+        cp "target/release/volume_layout.exe" "$staging/"
+
         7z a "$staging.zip" "$staging"
         echo "ASSET=$staging.zip" >> $GITHUB_ENV
 
