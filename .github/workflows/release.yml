@@ -85,8 +85,13 @@ jobs:
     - name: Build archive
       shell: bash
       run: |
-        echo "ASSET=${{ env.GITHUB_WORKSPACE }}/target/release/vanillawinrefs_to_jsonl.exe" >> $GITHUB_ENV
-        echo "ASSET_NAME=vanillawinrefs_to_jsonl-${{ env.RELEASE_VERSION }}.exe" >> $GITHUB_ENV
+        staging="tools-windows"
+        mkdir -p "$staging"
+
+        cp "target/release/*.exe" "$staging/"
+        
+        7z a "$staging.zip" "$staging"
+        echo "ASSET=$staging.zip" >> $GITHUB_ENV
 
     - name: Upload release archive
       uses: actions/upload-release-asset@v1.0.1
@@ -95,6 +100,6 @@ jobs:
       with:
         upload_url: ${{ env.RELEASE_UPLOAD_URL }}
         asset_path: ${{ env.ASSET }}
-        asset_name: ${{ env.ASSET_NAME }}
+        asset_name: ${{ env.ASSET }}
         asset_content_type: application/octet-stream
   
