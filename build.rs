@@ -18,9 +18,13 @@ fn main() {
         .header("wrapper.h")
         .parse_callbacks(Box::new(bindgen::CargoCallbacks))
         .clang_args(&["-I", "sleuthkit"])
+        .derive_debug(true)
+        .derive_default(true)
+        
         .whitelist_function("tsk_error_get")
         
         .whitelist_function("tsk_img_open_utf8_sing")
+        .whitelist_function("tsk_img_open_external")
         .whitelist_function("tsk_img_close")
 
         .whitelist_function("tsk_vs_open")
