@@ -15,6 +15,14 @@ pub struct TskImg {
     pub handle: NonNull<tsk::TSK_IMG_INFO>
 }
 impl TskImg {
+    /// Create a TskImg wrapper from a given TSK_IMG_INFO NonNull pinter.
+    /// 
+    pub fn from_tsk_img_info_ptr(img_info: NonNull<tsk::TSK_IMG_INFO>) -> Self {
+        Self {
+            handle: img_info
+        }
+    }
+
     /// Create a TskImg wrapper from a given source.
     /// 
     pub fn from_source(source: &str) -> Result<Self, TskError> {
