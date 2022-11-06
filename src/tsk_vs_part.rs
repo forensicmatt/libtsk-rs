@@ -1,7 +1,8 @@
-use std::ffi::{CStr};
+use std::ffi::CStr;
 use crate::{
     errors::TskError,
     tsk_vs::TskVs,
+    tsk_vs_part_handle::TskVsPartHandle,
     bindings as tsk
 };
 
@@ -18,6 +19,11 @@ impl TskVsPart {
         )};
 
         Ok(Self(tsk_vs_part))
+    }
+
+    /// Get a IO handle to the partition
+    pub fn get_handle<'p>(&'p self) -> TskVsPartHandle<'p> {
+        TskVsPartHandle::new(&self)
     }
 
     /// Get the description string
