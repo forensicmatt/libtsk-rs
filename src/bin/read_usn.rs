@@ -88,7 +88,7 @@ fn main() {
                     let bytes_read = match attr.read(&mut buffer){
                         Ok(br) => br,
                         Err(e) => {
-                            panic!(format!("Error reading from data attribute at offset {}. {:?}", offset, e));
+                            panic!("Error reading from data attribute at offset {}. {:?}", offset, e);
                         }
                     };
                     file.write(&buffer)
