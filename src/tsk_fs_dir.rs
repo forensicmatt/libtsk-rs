@@ -1,4 +1,4 @@
-use std::ffi::{CStr};
+use std::ffi::CStr;
 use crate::{
     errors::TskError,
     tsk_fs::TskFs,
@@ -132,14 +132,16 @@ impl<'fs> Drop for TskFsDir<'fs> {
 #[derive(Debug, Clone)]
 pub struct IntoDirNameIter<'fs>{
     tsk_fs_dir: TskFsDir<'fs>,
-    index: u64
+    index: usize
 }
 impl<'fs> Iterator for IntoDirNameIter<'fs> {
     type Item = TskFsName;
     
     fn next(&mut self) -> Option<TskFsName> {
         let tsk_fs_dir_ptr: *mut tsk::TSK_FS_DIR = self.tsk_fs_dir.as_mut_ptr();
-        let names_used =  unsafe {(*tsk_fs_dir_ptr).names_used};
+        let names_used =  unsafe {
+            (*tsk_fs_dir_ptr).names_used
+        };
 
         if self.index < names_used {
             // Get the pointer to the TSK_FS_NAME from the names array at the given index
@@ -165,7 +167,7 @@ impl<'fs> Iterator for IntoDirNameIter<'fs> {
 #[derive(Debug, Clone)]
 pub struct DirNameIter<'fs, 'd>{
     tsk_fs_dir: &'d TskFsDir<'fs>,
-    index: u64
+    index: usize
 }
 impl<'fs, 'd> DirNameIter<'fs, 'd> {
     pub fn get_dir(&self) -> &'d TskFsDir<'fs> {

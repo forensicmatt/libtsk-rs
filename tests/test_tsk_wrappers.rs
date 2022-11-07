@@ -8,37 +8,10 @@ use tsk::bindings;
 use std::fs::File;
 
 
-#[cfg(target_os = "windows")]
-fn get_windows_sample_file_parts() -> (String, String) {
-    // Build path to test file
-    let test_file_path: PathBuf = [
-        env!("CARGO_MANIFEST_DIR"),
-        "samples",
-        "test_file"
-    ].iter().collect();
-
-    // Get the root volume for correct TSK volume
-    let root = test_file_path.components().nth(0).unwrap();
-    let root_str = root.as_os_str().to_string_lossy();
-    let volume_str = format!(r"\\.\{}", root_str);
-    println!("volume_str => {}", volume_str);
-
-    // Generate the TSK path to fetch
-    let tsk_file_path_str = test_file_path
-        .strip_prefix(root_str.to_string())
-        .unwrap()
-        .to_string_lossy()
-        .replace("\\", "/");
-    println!("tsk_file_path_str => {}", tsk_file_path_str);
-
-    (volume_str, tsk_file_path_str)
-}
-
-#[cfg(target_os = "windows")]
 #[test]
 fn test_tsk_wrappers_dir() {
-    let source = r"\\.\C:";
-    let tsk_img = TskImg::from_source(source)
+    let source = PathBuf::from(format!("{}/samples/ntfs.raw", env!("CARGO_MANIFEST_DIR")));
+    let tsk_img = TskImg::from_utf8_sing(source)
         .expect("Could not create TskImg");
     println!("{:?}", tsk_img);
 
@@ -59,12 +32,10 @@ fn test_tsk_wrappers_dir() {
 }
 
 
-#[cfg(target_os = "windows")]
 #[test]
 fn test_tsk_iterate_root() {
-    let source = r"\\.\C:";
-
-    let tsk_img = TskImg::from_source(source)
+    let source = PathBuf::from(format!("{}/samples/ntfs.raw", env!("CARGO_MANIFEST_DIR")));
+    let tsk_img = TskImg::from_utf8_sing(source)
         .expect("Could not create TskImg");
     println!("{:?}", tsk_img);
 
@@ -89,11 +60,10 @@ fn test_tsk_iterate_root() {
 }
 
 
-#[cfg(target_os = "windows")]
 #[test]
 fn test_tsk_wrappers() {
-    let source = r"\\.\PHYSICALDRIVE0";
-    let tsk_img = TskImg::from_source(source)
+    let source = PathBuf::from(format!("{}/samples/ntfs.raw", env!("CARGO_MANIFEST_DIR")));
+    let tsk_img = TskImg::from_utf8_sing(source)
         .expect("Could not create TskImg");
 
     let tsk_vs = tsk_img.get_vs_from_offset(0)
@@ -116,8 +86,8 @@ fn test_tsk_wrappers() {
     }
     drop(tsk_vs);
 
-    let source = r"\\.\C:";
-    let tsk_img = TskImg::from_source(source)
+    let source = PathBuf::from(format!("{}/samples/ntfs.raw", env!("CARGO_MANIFEST_DIR")));
+    let tsk_img = TskImg::from_utf8_sing(source)
         .expect("Could not create TskImg");
     println!("{:?}", tsk_img);
 
@@ -175,11 +145,11 @@ fn test_tsk_wrappers() {
     }
 }
 
-#[cfg(target_os = "windows")]
+
 #[test]
 fn test_tsk_attr_read_seek() {
-    let source = r"\\.\C:";
-    let tsk_img = TskImg::from_source(source)
+    let source = PathBuf::from(format!("{}/samples/ntfs.raw", env!("CARGO_MANIFEST_DIR")));
+    let tsk_img = TskImg::from_utf8_sing(source)
         .expect("Could not create TskImg");
     println!("{:?}", tsk_img);
 
@@ -203,13 +173,13 @@ fn test_tsk_attr_read_seek() {
     println!("MFT record at offset 1024 -> {:02x?}", buffer);
 }
 
-#[cfg(target_os = "windows")]
+
 #[test]
 fn test_tsk_file_handle_read_seek() {
     // Generate the TSK path to fetch
-    let (volume_str, tsk_file_path_str) = get_windows_sample_file_parts();
-
-    let tsk_img = TskImg::from_source(&volume_str)
+    let tsk_file_path_str = "/$MFT";
+    let source = PathBuf::from(format!("{}/samples/ntfs.raw", env!("CARGO_MANIFEST_DIR")));
+    let tsk_img = TskImg::from_utf8_sing(source)
         .expect("Could not create TskImg");
     println!("{:?}", tsk_img);
 
@@ -232,28 +202,28 @@ fn test_tsk_file_handle_read_seek() {
         bindings::TSK_FS_FILE_READ_FLAG_ENUM::TSK_FS_FILE_READ_FLAG_NONE
     ).expect("Unable to get default attribute.");
 
-    let mut buf = [0; 1];
+    let mut buf = [0; 4];
 
     // Read first byte
     test_file_handle.read(&mut buf).unwrap();
-    assert_eq!(&buf, b"\x00");
+    assert_eq!(&buf, b"FILE");
     println!("{:?}", buf);
 
     // Seek to the last byte
-    test_file_handle.seek(SeekFrom::End(-1)).unwrap();
+    test_file_handle.seek(SeekFrom::End(-4)).unwrap();
 
     // Read last byte
     test_file_handle.read(&mut buf).unwrap();
-    assert_eq!(&buf, b"\xff");
+    assert_eq!(&buf, b"\x00\x00\x03\x00");
     println!("{:?}", buf);
 }
 
-#[cfg(target_os = "windows")]
+
 #[test]
 fn test_tsk_fs_meta(){
-    let (volume_str, tsk_file_path_str) = get_windows_sample_file_parts();
-
-    let tsk_img = TskImg::from_source(&volume_str)
+    let tsk_file_path_str = "/$MFT";
+    let source = PathBuf::from(format!("{}/samples/ntfs.raw", env!("CARGO_MANIFEST_DIR")));
+    let tsk_img = TskImg::from_utf8_sing(source)
         .expect("Could not create TskImg");
 
     let tsk_fs = tsk_img.get_fs_from_offset(0)
@@ -267,12 +237,12 @@ fn test_tsk_fs_meta(){
     println!("{:?}",root_fh.get_meta());
 }
 
-#[cfg(target_os = "windows")]
+
 #[test]
 fn test_copy_file(){
-    let (volume_str, tsk_file_path_str) = get_windows_sample_file_parts();
-
-    let tsk_img = TskImg::from_source(&volume_str)
+    let tsk_file_path_str = "/$MFT";
+    let source = PathBuf::from(format!("{}/samples/ntfs.raw", env!("CARGO_MANIFEST_DIR")));
+    let tsk_img = TskImg::from_utf8_sing(source)
         .expect("Could not create TskImg");
 
     let tsk_fs = tsk_img.get_fs_from_offset(0)
@@ -293,8 +263,8 @@ fn test_copy_file(){
     ).expect("Unable to get default attribute.");
 
     // Specify a buffer of 10 bytes
-    let mut buf = [0;10];
-    let outfile_path = format!("{}{}", tsk_file_path_str, "_copied_using_libtsk_rs");
+    let mut buf = [0;1024];
+    let outfile_path = "test_output";
     println!("Writing to '{}'...", outfile_path);
     let mut outfile = File::create(outfile_path).unwrap();
     loop {

@@ -325,12 +325,14 @@ impl<'fs, 'f> std::fmt::Debug for TskFsAttr<'fs, 'f> {
 }
 impl<'fs, 'f> Read for TskFsAttr<'fs, 'f> {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
-        let attr_size = self.size();
+        let attr_size: usize = self.size()
+            .try_into()
+            .unwrap();
 
-        let read_size = if buf.len() as u64 > attr_size as u64 {
-            attr_size as u64
+        let read_size: usize = if buf.len() > attr_size {
+            attr_size
         } else {
-            buf.len() as u64
+            buf.len()
         };
 
         // Get a pointer to the TSK_FS_FILE sturct
@@ -356,7 +358,8 @@ impl<'fs, 'f> Read for TskFsAttr<'fs, 'f> {
             );
         }
         // update offset by the number of bytes read
-        self._offset += bytes_read;
+        self._offset += TryInto::<i64>::try_into(bytes_read)
+            .unwrap();
 
         Ok(bytes_read as usize)
     }

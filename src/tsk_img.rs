@@ -1,3 +1,4 @@
+use std::path::Path;
 use std::ptr::{NonNull};
 use std::ffi::{CStr, CString};
 use crate::{
@@ -25,9 +26,9 @@ impl TskImg {
 
     /// Create a TskImg wrapper from a given source.
     /// 
-    pub fn from_source(source: &str) -> Result<Self, TskError> {
+    pub fn from_utf8_sing(path: impl AsRef<Path>) -> Result<Self, TskError> {
         // Create a CString for the provided source
-        let source = CString::new(source)
+        let source = CString::new(path.as_ref().to_string_lossy().as_bytes())
             .map_err(|e| TskError::generic(format!("Unable to create CString from source: {:?}", e)))?;
 
         // Get a pointer to the TSK_IMG_INFO sturct

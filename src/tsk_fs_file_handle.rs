@@ -1,5 +1,5 @@
 #![allow(non_camel_case_types)]
-
+use std::convert::TryInto;
 use std::io::{Read, Seek, SeekFrom};
 use std::ffi::CStr;
 use super::{
@@ -53,7 +53,7 @@ impl<'f, 'fs> Read for TskFsFileHandle<'f, 'fs> {
             self.tsk_fs_attr.id(),
             self._offset,
             buf.as_mut_ptr() as *mut i8,
-            buf.len() as u64,
+            buf.len(),
             self.read_flag
         )};
         match bytes_read {
@@ -71,7 +71,8 @@ impl<'f, 'fs> Read for TskFsFileHandle<'f, 'fs> {
                 ));
             }
             _ => {
-                    self._offset+=bytes_read;
+                    self._offset += TryInto::<i64>::try_into(bytes_read)
+                        .unwrap();
                     return Ok(bytes_read as usize);
                 }
         };
