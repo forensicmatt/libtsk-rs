@@ -70,7 +70,7 @@ fn main() {
 }
 
 #[cfg(target_os = "windows")]
-fn windows_compile_tsk() {
+fn windows_compile_tsk(target_arch: &str) {
     // First we need the x86 program path
     let program_path = PathBuf::from(
         std::env::var("ProgramFiles(x86)")
@@ -106,7 +106,13 @@ fn windows_compile_tsk() {
         .args(&[
             r"-target:libtsk",
             r"/p:PlatformToolset=v142",
-            r"/p:Platform=x64",
+
+            if target_arch == "x86" {
+                r"/p:Platform=Win32"
+            } else {
+                r"/p:Platform=x64"
+            },
+
             r"/p:Configuration=Release_NoLibs",
             r"/p:RestorePackages=false",
             r"sleuthkit\win32\tsk-win.sln"
@@ -119,9 +125,16 @@ fn windows_compile_tsk() {
 
 #[cfg(target_os = "windows")]
 fn windows_setup() {
-    windows_compile_tsk();
-    println!(r"cargo:rustc-link-search={}\sleuthkit\win32\x64\Release_NoLibs", env::var("CARGO_MANIFEST_DIR").unwrap());
+    let target_arch = env::var("CARGO_CFG_TARGET_ARCH").unwrap();
 
+    windows_compile_tsk(&target_arch);
+
+    if target_arch == "x86" {
+        println!(r"cargo:rustc-link-search={}\sleuthkit\win32\Release_NoLibs", env::var("CARGO_MANIFEST_DIR").unwrap());
+    } else {
+        println!(r"cargo:rustc-link-search={}\sleuthkit\win32\x64\Release_NoLibs", env::var("CARGO_MANIFEST_DIR").unwrap());
+    }
+    
     let hklm = RegKey::predef(HKEY_LOCAL_MACHINE);
     let sdk_key = hklm.open_subkey(r"SOFTWARE\Wow6432Node\Microsoft\Microsoft SDKs\Windows\v10.0")
         .expect("Microsoft SDK v10 is required.");
@@ -135,7 +148,12 @@ fn windows_setup() {
         .expect("Cant get ProductVersion");
     eprintln!("product_version: {}", product_version);
 
-    let sdk_path = format!(r"{}Lib\{}.0\um\x64", &installation_folder, &product_version);
+    let sdk_path = if target_arch == "x86" {
+        format!(r"{}Lib\{}.0\um\x86", &installation_folder, &product_version)
+    } else {
+        format!(r"{}Lib\{}.0\um\x64", &installation_folder, &product_version)
+    };
+
     eprintln!("sdk_path: {}", &sdk_path);
 
     println!(r"cargo:rustc-link-search={}", sdk_path);

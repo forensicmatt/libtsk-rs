@@ -141,7 +141,7 @@ impl<'fs> Iterator for IntoDirNameIter<'fs> {
         let tsk_fs_dir_ptr: *mut tsk::TSK_FS_DIR = self.tsk_fs_dir.as_mut_ptr();
         let names_used =  unsafe {(*tsk_fs_dir_ptr).names_used};
 
-        if self.index < names_used {
+        if self.index < names_used.into() {
             // Get the pointer to the TSK_FS_NAME from the names array at the given index
             let ptr = unsafe {(*tsk_fs_dir_ptr).names.offset(self.index as isize)};
 
@@ -178,7 +178,7 @@ impl<'fs, 'd> Iterator for DirNameIter<'fs, 'd> {
     fn next(&mut self) -> Option<TskFsName> {
         let tsk_fs_dir_ptr: *mut tsk::TSK_FS_DIR = self.tsk_fs_dir.into();
 
-        while self.index < unsafe {(*tsk_fs_dir_ptr).names_used} {
+        while self.index < unsafe {(*tsk_fs_dir_ptr).names_used.into()} {
             // Get the pointer to the TSK_FS_NAME from the names array at the given index
             let ptr = unsafe {(*tsk_fs_dir_ptr).names.offset(self.index as isize)};
 
