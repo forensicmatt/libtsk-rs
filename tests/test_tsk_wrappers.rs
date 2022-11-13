@@ -62,7 +62,7 @@ fn test_tsk_iterate_root() {
 
 #[test]
 fn test_tsk_wrappers() {
-    let source = PathBuf::from(format!("{}/samples/ntfs.raw", env!("CARGO_MANIFEST_DIR")));
+    let source = PathBuf::from(format!("{}/samples/mbr.raw", env!("CARGO_MANIFEST_DIR")));
     let tsk_img = TskImg::from_utf8_sing(source)
         .expect("Could not create TskImg");
 
