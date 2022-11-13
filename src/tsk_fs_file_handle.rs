@@ -1,6 +1,7 @@
 #![allow(non_camel_case_types)]
 use std::convert::TryInto;
 use std::io::{Read, Seek, SeekFrom};
+use std::ptr::NonNull;
 use std::ffi::CStr;
 use super::{
     tsk_fs_file::TskFsFile,
@@ -59,9 +60,18 @@ impl<'f, 'fs> Read for TskFsFileHandle<'f, 'fs> {
         match bytes_read {
             -1 => {
                 // Get a ptr to the error msg
-                let error_msg_ptr = unsafe { tsk::tsk_error_get() };
+                let error_msg_ptr = unsafe { NonNull::new(tsk::tsk_error_get() as _) }
+                    .ok_or(
+                        std::io::Error::new(
+                            std::io::ErrorKind::Other,
+                            format!(
+                                "tsk_fs_file_read_type Error. No context." 
+                            )
+                        )
+                    )?;
+
                 // Get the error message from the string
-                let error_msg = unsafe { CStr::from_ptr(error_msg_ptr) }.to_string_lossy();
+                let error_msg = unsafe { CStr::from_ptr(error_msg_ptr.as_ptr()) }.to_string_lossy();
                 return Err(
                     std::io::Error::new(
                     std::io::ErrorKind::Other,

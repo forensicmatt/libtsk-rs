@@ -28,12 +28,25 @@ impl TskVs {
         let handle = match NonNull::new(tsk_vs) {
             None => {
                 // Get a ptr to the error msg
-                let error_msg_ptr = unsafe { tsk::tsk_error_get() };
+                let error_msg_ptr = unsafe { NonNull::new(tsk::tsk_error_get() as _) }
+                    .ok_or(
+                        TskError::lib_tsk_error(
+                            format!(
+                                "There was an error opening the TSK_VS_INFO handle at offset {}. (no context)",
+                                offset
+                            )
+                        )
+                    )?;
+
                 // Get the error message from the string
-                let error_msg = unsafe { CStr::from_ptr(error_msg_ptr) }.to_string_lossy();
+                let error_msg = unsafe { CStr::from_ptr(error_msg_ptr.as_ptr()) }.to_string_lossy();
                 // Return an error which includes the TSK error message
                 return Err(TskError::lib_tsk_error(
-                    format!("There was an error opening the TSK_VS_INFO handle at offset {}: {}", offset, error_msg)
+                    format!(
+                        "There was an error opening the TSK_VS_INFO handle at offset {}: {}",
+                        offset,
+                        error_msg
+                    )
                 ));
             },
             Some(h) => h

@@ -1,4 +1,4 @@
-use std::ptr::{null_mut};
+use std::ptr::{null_mut, NonNull};
 use std::ffi::{CStr, CString};
 use crate::{
     errors::TskError,
@@ -38,9 +38,15 @@ impl<'fs> TskFsFile<'fs> {
 
         if tsk_fs_file_ptr.is_null() {
             // Get a ptr to the error msg
-            let error_msg_ptr = unsafe { tsk::tsk_error_get() };
+            let error_msg_ptr = unsafe { NonNull::new(tsk::tsk_error_get() as _) }
+                .ok_or(
+                    TskError::lib_tsk_error(
+                        format!("There was an error opening {}. (no context)", path)
+                    )
+                )?;
+
             // Get the error message from the string
-            let error_msg = unsafe { CStr::from_ptr(error_msg_ptr) }.to_string_lossy();
+            let error_msg = unsafe { CStr::from_ptr(error_msg_ptr.as_ptr()) }.to_string_lossy();
             // Return an error which includes the TSK error message
             return Err(TskError::lib_tsk_error(
                 format!("There was an error opening {}: {}", path, error_msg)
@@ -65,9 +71,15 @@ impl<'fs> TskFsFile<'fs> {
 
         if tsk_fs_file_ptr.is_null() {
             // Get a ptr to the error msg
-            let error_msg_ptr = unsafe { tsk::tsk_error_get() };
+            let error_msg_ptr = unsafe { NonNull::new(tsk::tsk_error_get() as _) }
+                .ok_or(
+                    TskError::lib_tsk_error(
+                        format!("There was an error opening inode {} (no context)", inode)
+                    )
+                )?;
+
             // Get the error message from the string
-            let error_msg = unsafe { CStr::from_ptr(error_msg_ptr) }.to_string_lossy();
+            let error_msg = unsafe { CStr::from_ptr(error_msg_ptr.as_ptr()) }.to_string_lossy();
             // Return an error which includes the TSK error message
             return Err(TskError::lib_tsk_error(
                 format!("There was an error opening inode {}: {}", inode, error_msg)
@@ -90,9 +102,15 @@ impl<'fs> TskFsFile<'fs> {
 
         if attr_count == -1 {
             // Get a ptr to the error msg
-            let error_msg_ptr = unsafe { tsk::tsk_error_get() };
+            let error_msg_ptr = unsafe { NonNull::new(tsk::tsk_error_get() as _) }
+                .ok_or(
+                    TskError::lib_tsk_error(
+                        format!("There was an error getting attribute count for indoe {}. (no context)", self.get_meta().unwrap().addr())
+                    )
+                )?;
+
             // Get the error message from the string
-            let error_msg = unsafe { CStr::from_ptr(error_msg_ptr) }.to_string_lossy();
+            let error_msg = unsafe { CStr::from_ptr(error_msg_ptr.as_ptr()) }.to_string_lossy();
             // Return an error which includes the TSK error message
             return Err(TskError::lib_tsk_error(
                 format!("There was an error getting attribute count for indoe {}: {}", self.get_meta().unwrap().addr(), error_msg)

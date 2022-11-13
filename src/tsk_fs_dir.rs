@@ -1,4 +1,5 @@
 use std::ffi::CStr;
+use std::ptr::NonNull;
 use crate::{
     errors::TskError,
     tsk_fs::TskFs,
@@ -28,9 +29,13 @@ impl<'fs> TskFsDir<'fs> {
         // Ensure that the ptr is not null
         if tsk_fs_dir_ptr.is_null() {
             // Get a ptr to the error msg
-            let error_msg_ptr = unsafe { tsk::tsk_error_get() };
+            let error_msg_ptr = unsafe { NonNull::new(tsk::tsk_error_get() as _) }
+                .ok_or(TskError::lib_tsk_error(
+                    format!("There was an error opening {} as a dir. No context.", inode)
+                ))?;
+
             // Get the error message from the string
-            let error_msg = unsafe { CStr::from_ptr(error_msg_ptr) }.to_string_lossy();
+            let error_msg = unsafe { CStr::from_ptr(error_msg_ptr.as_ptr()) }.to_string_lossy();
             // Return an error which includes the TSK error message
             return Err(TskError::lib_tsk_error(
                 format!("There was an error opening {} as a dir: {}", inode, error_msg)
@@ -54,9 +59,12 @@ impl<'fs> TskFsDir<'fs> {
 
         if tsk_fs_name.is_null() {
             // Get a ptr to the error msg
-            let error_msg_ptr = unsafe { tsk::tsk_error_get() };
+            let error_msg_ptr = unsafe { NonNull::new(tsk::tsk_error_get() as _) }
+                .ok_or(TskError::tsk_fs_name_error(
+                    format!("Error getting TskFsName at index {} from TskFsDir {:?}. No context.", index, &self)
+                ))?;
             // Get the error message from the string
-            let error_msg = unsafe { CStr::from_ptr(error_msg_ptr) }.to_string_lossy();
+            let error_msg = unsafe { CStr::from_ptr(error_msg_ptr.as_ptr()) }.to_string_lossy();
             // Return an error which includes the TSK error message
             return Err(TskError::tsk_fs_name_error(
                 format!("Error getting TskFsName at index {} from TskFsDir {:?}: {}", index, &self, error_msg)
