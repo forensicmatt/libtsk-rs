@@ -15,6 +15,7 @@ and this project adheres to
 
 ### Changed
 - tests work of of test images instead of logical volume
+- renamed `TskImg::from_source` to `TskImg::from_utf8_sing` to better fit with libtsk function name
 
 ## [0.2.0]
 ### Added
