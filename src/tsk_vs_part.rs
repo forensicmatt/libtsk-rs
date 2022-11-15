@@ -53,8 +53,18 @@ impl<'vs> TskVsPart<'vs> {
     }
 
     /// Get an iterator based off this TskVsPart struct
-    pub fn into_iter<'p>(&'vs mut self) -> TskVsPartIterator<'p, 'vs> {
+    pub fn into_iter(self) -> TskVsPartIterator<'vs> {
         TskVsPartIterator(self)
+    }
+}
+impl<'vs> Into<*const tsk::TSK_VS_PART_INFO> for &TskVsPart<'vs> {
+    fn into(self) -> *const tsk::TSK_VS_PART_INFO {
+        self.tsk_part_info
+    }
+}
+impl<'vs> Into<*mut tsk::TSK_VS_PART_INFO> for &TskVsPart<'vs> {
+    fn into(self) -> *mut tsk::TSK_VS_PART_INFO {
+        self.tsk_part_info as _
     }
 }
 impl<'vs> std::fmt::Debug for TskVsPart<'vs> {
@@ -75,21 +85,34 @@ impl<'vs> std::fmt::Debug for TskVsPart<'vs> {
 
 /// An iterator over a TSK_VS_PART_INFO pointer which uses the
 /// structs next attribute to iterate.
-pub struct TskVsPartIterator<'p, 'vs>(&'p mut TskVsPart<'vs>);
-impl<'p, 'vs> Iterator for TskVsPartIterator<'p, 'vs> {
-    type Item = &'p mut TskVsPart<'vs>;
+pub struct TskVsPartIterator<'vs>(TskVsPart<'vs>);
+impl< 'vs> Iterator for TskVsPartIterator< 'vs> {
+    type Item = TskVsPart<'vs>;
     
-    fn next(&mut self) -> Option<&'p mut TskVsPart<'vs>> {
+    fn next(&mut self) -> Option<TskVsPart<'vs>> {
+        // Check that the partition is not null
         if self.0.tsk_part_info.is_null() {
             return None;
         }
 
+        // Get current pointer
+        let current = self.0.tsk_part_info;
+
+        // Get the next pointer
         let next = unsafe {
             *self.0.tsk_part_info
         }.next as *const tsk::TSK_VS_PART_INFO;
 
+        // Create a TskVsPartion that represents the current node
+        let cur3nt_vs_part = TskVsPart{
+            tsk_vs: self.0.tsk_vs,
+            tsk_part_info: current
+        };
+
+        // Set the iterators pointer to the next node
         self.0.tsk_part_info = next;
         
-        Some(self.0)
+        // Return current partition
+        Some(cur3nt_vs_part)
     }
 }

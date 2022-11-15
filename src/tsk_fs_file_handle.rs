@@ -88,7 +88,6 @@ impl<'f, 'fs> Read for TskFsFileHandle<'f, 'fs> {
         };
     }
 }
-
 impl<'f, 'fs> Seek for TskFsFileHandle<'f, 'fs> {
     fn seek(&mut self, pos: SeekFrom) -> std::io::Result<u64>{
         match pos {

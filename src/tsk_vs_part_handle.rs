@@ -1,7 +1,10 @@
 #![allow(non_camel_case_types)]
-use std::{io::{Read, Seek, SeekFrom}, convert::TryInto};
+use std::convert::TryInto;
+use std::ffi::CStr;
+use std::ptr::NonNull;
+use std::io::{Read, Seek, SeekFrom};
 use crate::tsk_vs_part::TskVsPart;
-
+use crate::bindings as tsk;
 
 pub struct TskVsPartHandle<'vs, 'p>{
     /// The TskVs that is being used
@@ -85,20 +88,7 @@ impl<'vs, 'p> Seek for TskVsPartHandle<'vs, 'p> {
                             self.tsk_vs_part.size()
                         )
                     ));
-                }
-                else if new_offset < 0 {
-                    return Err(
-                        std::io::Error::new(
-                            std::io::ErrorKind::Other,
-                            format!(
-                                "Cannot seek Current({}) from offset {}",
-                                o,
-                                self._offset
-                            )
-                        )
-                    );
-                }
-                else {
+                } else {
                     self._offset = new_offset
                         .try_into()
                         .expect("Error converting offset into i64.");
@@ -107,5 +97,56 @@ impl<'vs, 'p> Seek for TskVsPartHandle<'vs, 'p> {
         }
 
         Ok(self._offset as u64)
+    }
+}
+impl<'vs, 'p> Read for TskVsPartHandle<'vs, 'p> {
+    fn read(&mut self, buf: &mut [u8]) ->  std::io::Result<usize> {
+        // byte size has to be in i64 due to _offset requried by tsk_vs_part_read
+        let part_byte_size = self.tsk_vs_part.size()
+            .try_into()
+            .expect("Partition size cannot be converted into i64!");
+
+        // Check if offset is at end of partition
+        if self._offset == part_byte_size {
+            return Ok(0);
+        }
+
+        // Read bytes
+        let bytes_read = unsafe{tsk::tsk_vs_part_read(
+            self.tsk_vs_part.into(),
+            self._offset,
+            buf.as_mut_ptr() as *mut i8,
+            buf.len()
+        )};
+
+        match bytes_read {
+            -1 => {
+                // Get a ptr to the error msg
+                let error_msg_ptr = unsafe {NonNull::new(tsk::tsk_error_get() as _)}
+                    .ok_or(
+                        std::io::Error::new(
+                            std::io::ErrorKind::Other,
+                            format!(
+                                "tsk_vs_part_read Error. No context." 
+                            )
+                        )
+                    )?;
+
+                // Get the error message from the string
+                let error_msg = unsafe { CStr::from_ptr(error_msg_ptr.as_ptr()) }.to_string_lossy();
+                return Err(
+                    std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    format!(
+                        "tsk_vs_part_read Error : {}", error_msg 
+                    )
+                ));
+            }
+            _ => {
+                    self._offset += TryInto::<i64>::try_into(bytes_read)
+                        .unwrap();
+                    return Ok(bytes_read as usize);
+                }
+        };
     }
 }

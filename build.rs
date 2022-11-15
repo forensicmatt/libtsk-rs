@@ -31,6 +31,7 @@ fn main() {
         .allowlist_function("tsk_vs_close")
 
         .allowlist_function("tsk_vs_part_get")
+        .allowlist_function("tsk_vs_part_read")
 
         .allowlist_function("tsk_fs_open_img")
         .allowlist_function("tsk_fs_close")

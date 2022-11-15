@@ -61,8 +61,10 @@ impl TskVs {
     }
 
     /// Get a partition iterator that yields TskVsPart structs
-    pub fn get_partition_iter(&self) -> Result<TskVsPartIterator, TskError> {
-        Ok(TskVsPart::new(self, 0)?.into_iter())
+    pub fn get_partition_iter<'vs>(&'vs self) -> Result<TskVsPartIterator<'vs>, TskError> {
+        let iterator = TskVsPart::new(self, 0)?
+            .into_iter();
+        Ok(iterator)
     }
 }
 impl Drop for TskVs {
