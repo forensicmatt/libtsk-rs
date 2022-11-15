@@ -52,7 +52,7 @@ fn main() {
             .map(|value| value.parse::<u64>().expect("used validator"))
             .expect("no offset");
 
-    let tsk_img = TskImg::from_source(source_location)
+    let tsk_img = TskImg::from_utf8_sing(source_location)
         .expect("Could not create TskImg");
 
     let tsk_fs = tsk_img.get_fs_from_offset(offset)

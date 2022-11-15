@@ -1,5 +1,6 @@
 use std::io::{Read, Seek, SeekFrom};
 use std::convert::{TryInto};
+use std::ptr::NonNull;
 use std::ffi::CStr;
 use crate::{
     errors::TskError,
@@ -207,9 +208,15 @@ impl<'f, 'fs> TskFsAttr<'f, 'fs> {
         // Check for error
         if tsk_fs_attr.is_null() {
             // Get a ptr to the error msg
-            let error_msg_ptr = unsafe { tsk::tsk_error_get() };
+            let error_msg_ptr = unsafe { 
+                NonNull::new(tsk::tsk_error_get() as _) 
+            }.ok_or(TskError::tsk_attr_error(format!(
+                "There was an error getting the TskFsAttr at index {}", 
+                tsk_fs_file_attr_get_idx
+            )))?;
+
             // Get the error message from the string
-            let error_msg = unsafe { CStr::from_ptr(error_msg_ptr) }.to_string_lossy();
+            let error_msg = unsafe { CStr::from_ptr(error_msg_ptr.as_ptr()) }.to_string_lossy();
             return Err(
                 TskError::tsk_attr_error(
                     format!(
@@ -241,9 +248,15 @@ impl<'f, 'fs> TskFsAttr<'f, 'fs> {
         // Check for error
         if tsk_fs_attr.is_null() {
             // Get a ptr to the error msg
-            let error_msg_ptr = unsafe { tsk::tsk_error_get() };
+            let error_msg_ptr = unsafe { NonNull::new(tsk::tsk_error_get() as _) }
+                .ok_or(TskError::tsk_attr_error(
+                    format!(
+                        "There was an error getting the default TskFsAttr"
+                    )
+                ))?;
+
             // Get the error message from the string
-            let error_msg = unsafe { CStr::from_ptr(error_msg_ptr) }.to_string_lossy();
+            let error_msg = unsafe { CStr::from_ptr(error_msg_ptr.as_ptr()) }.to_string_lossy();
             return Err(
                 TskError::tsk_attr_error(
                     format!(
@@ -325,12 +338,14 @@ impl<'fs, 'f> std::fmt::Debug for TskFsAttr<'fs, 'f> {
 }
 impl<'fs, 'f> Read for TskFsAttr<'fs, 'f> {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
-        let attr_size = self.size();
+        let attr_size: usize = self.size()
+            .try_into()
+            .unwrap();
 
-        let read_size = if buf.len() as u64 > attr_size as u64 {
-            attr_size as u64
+        let read_size: usize = if buf.len() > attr_size {
+            attr_size
         } else {
-            buf.len() as u64
+            buf.len()
         };
 
         // Get a pointer to the TSK_FS_FILE sturct
@@ -344,9 +359,18 @@ impl<'fs, 'f> Read for TskFsAttr<'fs, 'f> {
 
         if bytes_read == -1 {
             // Get a ptr to the error msg
-            let error_msg_ptr = unsafe { tsk::tsk_error_get() };
+            let error_msg_ptr = unsafe { NonNull::new(tsk::tsk_error_get() as _) }
+                .ok_or(std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    format!(
+                        "tsk_fs_attr_read error with no context. offset: {}; buffer_len: {}; read_size: {}",
+                        self._offset,
+                        buf.len(),
+                        read_size
+                    )))?;
+
             // Get the error message from the string
-            let error_msg = unsafe { CStr::from_ptr(error_msg_ptr) }.to_string_lossy();
+            let error_msg = unsafe { CStr::from_ptr(error_msg_ptr.as_ptr()) }.to_string_lossy();
             // Return an error which includes the TSK error message
             return Err(
                 std::io::Error::new(
@@ -356,7 +380,8 @@ impl<'fs, 'f> Read for TskFsAttr<'fs, 'f> {
             );
         }
         // update offset by the number of bytes read
-        self._offset += bytes_read;
+        self._offset += TryInto::<i64>::try_into(bytes_read)
+            .unwrap();
 
         Ok(bytes_read as usize)
     }

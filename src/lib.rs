@@ -8,6 +8,8 @@ pub mod tsk_img;
 pub mod tsk_vs;
 /// Wrapper for TSK_VS_PART_INFO
 pub mod tsk_vs_part;
+/// Implement handle for TskVsPart
+pub mod tsk_vs_part_handle;
 /// Wrapper for TSK_FS_INFO
 pub mod tsk_fs;
 /// Wrapper for TSK_FS_FILE

@@ -1,4 +1,5 @@
 use std::ffi::CStr;
+use std::ptr::NonNull;
 use crate::{
     errors::TskError,
     bindings as tsk
@@ -12,9 +13,15 @@ impl TskFsMeta {
     pub fn from_ptr(tsk_fs_meta: *const tsk::TSK_FS_META) -> Result<Self, TskError> {
         if tsk_fs_meta.is_null() {
             // Get a ptr to the error msg
-            let error_msg_ptr = unsafe { tsk::tsk_error_get() };
+            let error_msg_ptr = unsafe { NonNull::new(tsk::tsk_error_get() as _) }
+                .ok_or(
+                    TskError::lib_tsk_error(
+                        format!("Error TSK_FS_META is null. (no context)")
+                    )
+                )?;
+
             // Get the error message from the string
-            let error_msg = unsafe { CStr::from_ptr(error_msg_ptr) }.to_string_lossy();
+            let error_msg = unsafe { CStr::from_ptr(error_msg_ptr.as_ptr()) }.to_string_lossy();
             // Return an error which includes the TSK error message
             return Err(TskError::tsk_fs_meta_error(
                 format!("Error TSK_FS_META is null: {}", error_msg)

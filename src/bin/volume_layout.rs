@@ -29,7 +29,7 @@ fn main() {
     let options = arg_parser.get_matches();
 
     let source_location = options.value_of("source").expect("No source was provided!");
-    let tsk_img = TskImg::from_source(source_location)
+    let tsk_img = TskImg::from_utf8_sing(source_location)
         .expect("Could not create TskImg");
 
     let tsk_vs = tsk_img.get_vs_from_offset(0)

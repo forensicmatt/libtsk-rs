@@ -45,7 +45,7 @@ fn main() {
     let source_location = options.value_of("volume")
         .expect("No source was provided!");
 
-    let tsk_img = TskImg::from_source(source_location)
+    let tsk_img = TskImg::from_utf8_sing(source_location)
         .expect("Could not create TskImg");
 
     let tsk_fs = tsk_img.get_fs_from_offset(0)
@@ -88,7 +88,7 @@ fn main() {
                     let bytes_read = match attr.read(&mut buffer){
                         Ok(br) => br,
                         Err(e) => {
-                            panic!(format!("Error reading from data attribute at offset {}. {:?}", offset, e));
+                            panic!("Error reading from data attribute at offset {}. {:?}", offset, e);
                         }
                     };
                     file.write(&buffer)

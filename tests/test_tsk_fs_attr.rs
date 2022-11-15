@@ -5,8 +5,8 @@ use tsk::tsk_img::TskImg;
 #[cfg(target_os = "windows")]
 #[test]
 fn test_tsk_wrappers_non_resident_data() {
-    let source = r"\\.\C:";
-    let tsk_img = TskImg::from_source(source)
+    let source = r"samples/ntfs.raw";
+    let tsk_img = TskImg::from_utf8_sing(source)
         .expect("Could not create TskImg");
     println!("{:?}", tsk_img);
 
