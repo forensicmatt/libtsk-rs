@@ -1,12 +1,24 @@
 use std::path::Path;
 use std::ptr::NonNull;
-use std::ffi::{CStr, CString};
+use std::ffi::{CStr, CString, c_void};
 use crate::{
     errors::TskError,
     bindings as tsk,
     tsk_fs::TskFs,
     tsk_vs::TskVs
 };
+
+
+type ReadCallback = Option<
+    unsafe extern "C" fn(
+        img: *mut tsk::TSK_IMG_INFO,
+        off: tsk::TSK_OFF_T,
+        buf: *mut ::std::os::raw::c_char,
+        len: usize,
+    ) -> isize,
+>;
+type CloseCallback = Option<unsafe extern "C" fn(arg1: *mut tsk::TSK_IMG_INFO)>;
+type ImgStatCallback = Option<unsafe extern "C" fn(arg1: *mut tsk::TSK_IMG_INFO, arg2: *mut tsk::FILE)>;
 
 
 /// Wrapper for TSK_IMG_INFO
@@ -16,12 +28,57 @@ pub struct TskImg {
     pub handle: NonNull<tsk::TSK_IMG_INFO>
 }
 impl TskImg {
+    /// Create TskImg from custom callbacks
+    pub fn from_external(
+        ext_img_info: *mut c_void,
+        size: i64,
+        sector_size: u32,
+        read: ReadCallback,
+        close: CloseCallback,
+        imgstat: ImgStatCallback
+    ) -> Result<Self, TskError> {
+        // Open TSK_IMG_INFO based off of callback functions
+        let tsk_img_info_ptr: *mut tsk::TSK_IMG_INFO = unsafe { 
+            tsk::tsk_img_open_external(
+                ext_img_info,
+                size,
+                sector_size,
+                read,
+                close,
+                imgstat
+            )
+        };
+
+        let handle = match NonNull::new(tsk_img_info_ptr) {
+            None => {
+                // Get a ptr to the error msg
+                let error_msg_ptr = unsafe { NonNull::new(tsk::tsk_error_get() as _) }
+                    .ok_or(
+                        TskError::lib_tsk_error(
+                            format!(
+                                "tsk_img_open_external() error. (no context)"
+                            )
+                        )
+                    )?;
+
+                // Get the error message from the string
+                let error_msg = unsafe { CStr::from_ptr(error_msg_ptr.as_ptr()) }.to_string_lossy();
+
+                // Return an error which includes the TSK error message
+                return Err(TskError::lib_tsk_error(
+                    format!("There was an error opening the img handle: {}", error_msg)
+                ));
+            },
+            Some(h) => h
+        };
+
+        Ok( Self { handle })
+    }
+
     /// Create a TskImg wrapper from a given TSK_IMG_INFO NonNull pinter.
     /// 
     pub fn from_tsk_img_info_ptr(img_info: NonNull<tsk::TSK_IMG_INFO>) -> Self {
-        Self {
-            handle: img_info
-        }
+        Self { handle: img_info }
     }
 
     /// Create a TskImg wrapper from a given source.

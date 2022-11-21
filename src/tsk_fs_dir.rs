@@ -1,4 +1,4 @@
-use std::ffi::CStr;
+use std::ffi::{CStr, CString};
 use std::ptr::NonNull;
 use crate::{
     errors::TskError,
@@ -39,6 +39,41 @@ impl<'fs> TskFsDir<'fs> {
             // Return an error which includes the TSK error message
             return Err(TskError::lib_tsk_error(
                 format!("There was an error opening {} as a dir: {}", inode, error_msg)
+            ));
+        }
+
+        Ok( Self { 
+            tsk_fs_info_ptr: tsk_fs.into(), 
+            tsk_fs_dir_ptr,
+            _release: true
+        } )
+    }
+
+    /// Create a TSK_FS_DIR wrapper given TskFs and path
+    pub fn from_path(tsk_fs: &'fs TskFs, path: &str) -> Result<Self, TskError> {
+        // Create a CString for the provided source
+        let path_c = CString::new(path)
+            .map_err(|e| TskError::generic(format!("Unable to create CString from path {}: {:?}", path, e)))?;
+
+        // Get a pointer to the TSK_FS_DIR sturct
+        let tsk_fs_dir_ptr = unsafe {tsk::tsk_fs_dir_open(
+            tsk_fs.into(),
+            path_c.as_ptr() as _
+        )};
+
+        // Ensure that the ptr is not null
+        if tsk_fs_dir_ptr.is_null() {
+            // Get a ptr to the error msg
+            let error_msg_ptr = unsafe { NonNull::new(tsk::tsk_error_get() as _) }
+                .ok_or(TskError::lib_tsk_error(
+                    format!("There was an error opening {} as a dir. No context.", path)
+                ))?;
+
+            // Get the error message from the string
+            let error_msg = unsafe { CStr::from_ptr(error_msg_ptr.as_ptr()) }.to_string_lossy();
+            // Return an error which includes the TSK error message
+            return Err(TskError::lib_tsk_error(
+                format!("There was an error opening {} as a dir: {}", path, error_msg)
             ));
         }
 
