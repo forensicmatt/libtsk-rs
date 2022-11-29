@@ -30,6 +30,16 @@ impl<'vs> TskVsPart<'vs> {
         })
     }
 
+    /// Get the partition info pointer
+    pub fn get_part_info(&self) -> *const tsk::TSK_VS_PART_INFO {
+        self.tsk_part_info
+    }
+
+    /// Get the start offset
+    pub fn get_start_offset(&self) -> u64 {
+        unsafe{*(self.tsk_part_info)}.start * unsafe{*(*self.tsk_part_info).vs}.block_size as u64
+    }
+
     /// Get the len in blocks of this partition
     pub fn len(&self) -> u64 {
         unsafe {*self.tsk_part_info}.len

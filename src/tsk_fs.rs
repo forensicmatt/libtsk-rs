@@ -56,6 +56,11 @@ impl TskFs {
         TskFsFile::from_meta(&self, inode)
     }
 
+    /// Open a directory by a given path
+    pub fn dir_open(&self, path: &str) -> Result<TskFsDir, TskError> {
+        TskFsDir::from_path(self, path)
+    }
+
     pub fn iter_file_names<'fs>(&'fs self) -> Result<FsNameIter<'fs>, TskError> {
         let root_inode = unsafe {(*self.tsk_fs_ptr).root_inum};
         let root_dir = TskFsDir::from_meta(self, root_inode)?;

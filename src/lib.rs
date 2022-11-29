@@ -1,3 +1,7 @@
+#![feature(new_uninit)]
+#[macro_use] extern crate log;
+
+
 /// The bindings module are the automated bindgen created bindings
 pub mod bindings;
 /// Error handling for this crate
@@ -24,3 +28,8 @@ pub mod tsk_fs_meta;
 pub mod tsk_fs_file_handle;
 /// Wrapper for Tsk_FS_ATTR.
 pub mod tsk_fs_attr;
+/// Custom ReadSeek
+pub mod tsk_img_reader;
+
+pub use tsk_img::TskImg;
+pub use tsk_img_reader::{ReadSeek, TskImgReadSeek};

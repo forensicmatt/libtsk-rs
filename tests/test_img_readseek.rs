@@ -1,13 +1,23 @@
-extern crate tsk;
+use std::fs::File;
+use std::path::PathBuf;
 use tsk::tsk_img::TskImg;
+use tsk::tsk_img_reader::TskImgReadSeek;
 
 
 #[test]
-fn test_tsk_wrappers_non_resident_data() {
-    let source = r"samples/ntfs.raw";
-    let tsk_img = TskImg::from_utf8_sing(source)
-        .expect("Could not create TskImg");
-    println!("{:?}", tsk_img);
+fn test_tsk_reader() {
+    let source = PathBuf::from(format!("{}/samples/ntfs.raw", env!("CARGO_MANIFEST_DIR")));
+    let source_size = source.metadata().unwrap().len();
+    let handle = File::open(source).expect("Error opening file.");
+    let boxed_handle = Box::new(handle);
+    let reader = TskImgReadSeek::from_read_seek(
+        "Custom File IO",
+        boxed_handle,
+        source_size as i64
+    ).expect("Error creating TskImgReadSeek.");
+    println!("{:?}", reader);
+
+    let tsk_img: TskImg = reader.into();
 
     let tsk_fs = tsk_img.get_fs_from_offset(0)
         .expect("Could not open TskFs at offset 0");

@@ -48,6 +48,7 @@ fn main() {
         .allowlist_function("tsk_fs_attr_read")
 
         .allowlist_function("tsk_fs_dir_open_meta")
+        .allowlist_function("tsk_fs_dir_open")
         .allowlist_function("tsk_fs_dir_close")
         .allowlist_function("tsk_fs_dir_get_name")
         
