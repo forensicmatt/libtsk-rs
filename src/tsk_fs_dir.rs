@@ -12,7 +12,7 @@ use crate::{
 #[derive(Clone)]
 pub struct TskFsDir<'fs> {
     /// A TskFsDir can never outlive its TskFs
-    tsk_fs_info_ptr: &'fs *mut tsk::TSK_FS_INFO,
+    tsk_fs_info: &'fs TskFs,
     /// The ptr to the TSK_FS_DIR struct
     tsk_fs_dir_ptr: *mut tsk::TSK_FS_DIR,
     _release: bool
@@ -43,7 +43,7 @@ impl<'fs> TskFsDir<'fs> {
         }
 
         Ok( Self { 
-            tsk_fs_info_ptr: tsk_fs.into(), 
+            tsk_fs_info: tsk_fs, 
             tsk_fs_dir_ptr,
             _release: true
         } )
@@ -78,7 +78,7 @@ impl<'fs> TskFsDir<'fs> {
         }
 
         Ok( Self { 
-            tsk_fs_info_ptr: tsk_fs.into(), 
+            tsk_fs_info: tsk_fs, 
             tsk_fs_dir_ptr,
             _release: true
         } )
@@ -128,6 +128,11 @@ impl<'fs> TskFsDir<'fs> {
     /// Get the mut ptr for TSK_FS_DIR 
     pub fn as_mut_ptr(&mut self) -> *mut tsk::TSK_FS_DIR {
         self.tsk_fs_dir_ptr
+    }
+
+    /// Get the underlying TskFs
+    pub fn get_fs(&'fs self) -> &'fs TskFs {
+        self.tsk_fs_info
     }
 }
 impl<'fs> Into<*mut tsk::TSK_FS_DIR> for &TskFsDir<'fs> {

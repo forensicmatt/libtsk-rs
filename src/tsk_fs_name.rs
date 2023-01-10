@@ -2,7 +2,8 @@ use std::ffi::CStr;
 use std::ptr::NonNull;
 use crate::{
     errors::TskError,
-    bindings as tsk
+    bindings as tsk,
+    tsk_fs::TskFs
 };
 
 

@@ -16,7 +16,7 @@ use crate::{
 #[derive(Debug)]
 pub struct TskFsFile<'fs> {
     /// A TskFsFile can never outlive its TSK_FS_INFO
-    tsk_fs_info_ptr: &'fs *mut tsk::TSK_FS_INFO,
+    tsk_fs: &'fs TskFs,
     /// The ptr to the TSK_FS_FILE struct
     tsk_fs_file_ptr: *mut tsk::TSK_FS_FILE,
     /// We dont always want to free a file pointer
@@ -54,7 +54,7 @@ impl<'fs> TskFsFile<'fs> {
         }
 
         Ok( Self { 
-            tsk_fs_info_ptr: tsk_fs.into(),
+            tsk_fs,
             tsk_fs_file_ptr, 
             _release: true
         } )
@@ -87,7 +87,7 @@ impl<'fs> TskFsFile<'fs> {
         }
 
         Ok( Self { 
-            tsk_fs_info_ptr: tsk_fs.into(),
+            tsk_fs,
             tsk_fs_file_ptr, 
             _release: true
         } )
@@ -150,6 +150,9 @@ impl<'fs> TskFsFile<'fs> {
         TskFsFileHandle::new(self, tsk_fs_attr, read_flag)
     }
 
+    pub fn get_fs(&'fs self) -> &'fs TskFs {
+        self.tsk_fs
+    }
 }
 impl<'fs> Into<*mut tsk::TSK_FS_FILE> for &TskFsFile<'fs> {
     fn into(self) -> *mut tsk::TSK_FS_FILE {
